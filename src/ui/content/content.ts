@@ -27,6 +27,7 @@ const TARGETS = [
   'ytd-rich-section-renderer', // Shorts shelves / Trending shelves
   'ytd-reel-shelf-renderer',
   'ytd-shelf-renderer', // Search result shelves
+  'ytd-horizontal-card-list-renderer', // Alternative search result shelf
   'ytd-shorts', // The shorts player itself
   
   // Navigation
@@ -68,7 +69,7 @@ function buildContext(el: Element): Context | null {
   
   for (const a of anchors) {
     const href = a.getAttribute('href') || '';
-    if (href === '/shorts' || href.startsWith('/shorts/') || href.includes('/watch') || href.includes('/playlist')) {
+    if (href.includes('/shorts') || href.includes('/watch') || href.includes('/playlist')) {
       contentAnchor = a;
       break;
     }
@@ -118,15 +119,15 @@ function filterElement(el: Element, whitelist: Whitelist): void {
     .includes(tagName) || el.querySelector('.ytd-ad-slot-renderer, [class*="ad-slot"]');
   
   if (isAdOrShorts) {
-    (el as HTMLElement).style.display = 'none';
+    (el as HTMLElement).style.setProperty('display', 'none', 'important');
     return;
   }
 
   // Unconditionally hide sidebar Shorts links
   if (tagName === 'ytd-guide-entry-renderer' || tagName === 'ytd-mini-guide-entry-renderer') {
     const a = el.querySelector('a');
-    if (a && (a.getAttribute('title') === 'Shorts' || a.getAttribute('href') === '/shorts' || a.getAttribute('href') === '/shorts/')) {
-      (el as HTMLElement).style.display = 'none';
+    if (a && (a.getAttribute('title') === 'Shorts' || (a.getAttribute('href') || '').includes('/shorts'))) {
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
       return;
     }
   }
@@ -134,16 +135,16 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   // Unconditionally hide Home page Shorts shelves (ytd-rich-section-renderer)
   if (tagName === 'ytd-rich-section-renderer') {
     if (el.hasAttribute('is-shorts') || el.querySelector('[is-shorts]') || el.querySelector('yt-icon.ytd-logo[icon="yt-shorts"]')) {
-      (el as HTMLElement).style.display = 'none';
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
       return;
     }
   }
 
-  // Unconditionally hide Search page Shorts shelves (ytd-shelf-renderer)
-  if (tagName === 'ytd-shelf-renderer') {
+  // Unconditionally hide Search page Shorts shelves
+  if (tagName === 'ytd-shelf-renderer' || tagName === 'ytd-horizontal-card-list-renderer') {
     const title = el.querySelector('#title')?.textContent?.trim();
     if (title === 'Shorts' || el.querySelector('yt-icon[icon="yt-shorts"], .ytd-shorts-logo')) {
-      (el as HTMLElement).style.display = 'none';
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
       return;
     }
   }
@@ -152,13 +153,13 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   if (!ctx) return; // can't resolve → skip, don't hide
 
   if (!isAllowed(ctx, whitelist, 'filtered')) {
-    (el as HTMLElement).style.display = 'none';
+    (el as HTMLElement).style.setProperty('display', 'none', 'important');
 
     // Fallback: If we just hid a Short inside a shelf, hide the entire shelf container to prevent empty "Shorts" sections.
     if (ctx.isShort) {
-      const section = el.closest('ytd-rich-section-renderer, ytd-reel-shelf-renderer');
+      const section = el.closest('ytd-rich-section-renderer, ytd-reel-shelf-renderer, ytd-shelf-renderer, ytd-horizontal-card-list-renderer');
       if (section) {
-        (section as HTMLElement).style.display = 'none';
+        (section as HTMLElement).style.setProperty('display', 'none', 'important');
       }
     }
   }
