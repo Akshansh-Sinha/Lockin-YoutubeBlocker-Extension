@@ -14,13 +14,13 @@ export const whitelistRule: Rule = (ctx) => {
 
   if (route.type === 'video' && route.id) {
     // Check if the video itself is whitelisted
-    if (ctx.whitelist.videos.includes(route.id)) {
+    if (ctx.whitelist.videos.some(item => item.id === route.id)) {
       return { action: 'allow', reason: 'Video whitelisted' };
     }
 
     // Check if watching from a whitelisted playlist
     const playlistId = ctx.url.searchParams.get('list');
-    if (playlistId && ctx.whitelist.playlists.includes(playlistId)) {
+    if (playlistId && ctx.whitelist.playlists.some(item => item.id === playlistId)) {
       return { action: 'allow', reason: 'Playlist whitelisted' };
     }
 
@@ -31,7 +31,7 @@ export const whitelistRule: Rule = (ctx) => {
   }
 
   if (route.type === 'playlist' && route.id) {
-    if (ctx.whitelist.playlists.includes(route.id)) {
+    if (ctx.whitelist.playlists.some(item => item.id === route.id)) {
       return { action: 'allow', reason: 'Playlist whitelisted' };
     }
     return {

@@ -13,7 +13,7 @@ describe('decision engine', () => {
       override: defaults.override,
       settings: defaults.settings,
       whitelist: {
-        videos: ['whitelisted_video'],
+        videos: [{ id: 'whitelisted_video', name: 'Test video' }],
         playlists: [],
       },
     };
@@ -103,7 +103,7 @@ describe('decision engine', () => {
       settings: defaults.settings,
       whitelist: {
         videos: [],
-        playlists: ['whitelisted_playlist'],
+        playlists: [{ id: 'whitelisted_playlist', name: 'Test playlist' }],
       },
     };
 
@@ -119,7 +119,7 @@ describe('decision engine', () => {
       settings: defaults.settings,
       whitelist: {
         videos: [],
-        playlists: ['whitelisted_playlist'],
+        playlists: [{ id: 'whitelisted_playlist', name: 'Test playlist' }],
       },
     };
 

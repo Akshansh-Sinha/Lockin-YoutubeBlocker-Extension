@@ -9,23 +9,22 @@
 <body>
   <div class="popup">
     <div class="header">
-      <h1 class="title">🎯 FocusedTube</h1>
-      <p class="subtitle">Stay focused, stay learning</p>
+      <h1 class="title">FocusedTube</h1>
+      <p class="subtitle">Only the links you choose.</p>
     </div>
 
     <div id="firstRunSetup" style="display: none;" class="setup-section">
-      <h2>Set Your Password</h2>
-      <p class="setup-description">Create a password to protect your settings</p>
+      <h2>Set password</h2>
+      <p class="setup-description">Protect your whitelist and override settings.</p>
       <input id="setupPassword" type="password" placeholder="Password (min 8 chars)" class="input-field" />
       <input id="setupPasswordConfirm" type="password" placeholder="Confirm password" class="input-field" />
       <button id="setupBtn" class="btn btn-primary btn-full">Set up</button>
     </div>
 
     <div id="mainUI" style="display: none;">
-      <!-- Whitelisted Videos -->
       <div class="section">
         <div class="section-header">
-          <h2>📺 Videos</h2>
+          <h2>Videos</h2>
           <span class="count" id="videoCount">0</span>
         </div>
         <div id="videoList" class="list">
@@ -33,10 +32,9 @@
         </div>
       </div>
 
-      <!-- Whitelisted Playlists -->
       <div class="section">
         <div class="section-header">
-          <h2>📋 Playlists</h2>
+          <h2>Playlists</h2>
           <span class="count" id="playlistCount">0</span>
         </div>
         <div id="playlistList" class="list">
@@ -44,9 +42,8 @@
         </div>
       </div>
 
-      <!-- Add by URL -->
       <div class="section">
-        <h3>➕ Add by URL</h3>
+        <h3>Add link</h3>
         <input id="nameInput" type="text" placeholder="Name (optional)" class="input-field" />
         <div class="input-group">
           <input id="urlInput" type="text" placeholder="Paste YouTube URL" class="input-field" />
@@ -54,9 +51,8 @@
         </div>
       </div>
 
-      <!-- Unlock Section -->
       <div class="section unlock-section">
-        <h3>🔓 Unlock (Override)</h3>
+        <h3>Temporary unlock</h3>
         <div class="unlock-presets">
           <button class="btn btn-preset" data-minutes="10">10 min</button>
           <button class="btn btn-preset" data-minutes="20">20 min</button>

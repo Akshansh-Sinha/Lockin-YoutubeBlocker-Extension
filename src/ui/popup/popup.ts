@@ -1,7 +1,38 @@
 import { getStorage, addVideoToWhitelist, addPlaylistToWhitelist, removeVideoFromWhitelist, removePlaylistFromWhitelist } from '@/storage/index';
 import { extractVideoIdFromUrl, extractPlaylistIdFromUrl } from '@/interception/classifier';
+import type { WhitelistItem } from '@/storage/types';
 
 let hasPassword = false;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderWhitelistItem(item: WhitelistItem, type: 'video' | 'playlist'): string {
+  const encodedId = encodeURIComponent(item.id);
+  const href =
+    type === 'video'
+      ? `https://youtube.com/watch?v=${encodedId}`
+      : `https://youtube.com/playlist?list=${encodedId}`;
+  const displayName = item.name?.trim() || (type === 'video' ? 'Untitled video' : 'Untitled playlist');
+
+  return `
+    <div class="list-item">
+      <div class="item-content">
+        <a href="${href}" target="_blank" rel="noopener" class="item-link" title="Open on YouTube">
+          <span class="item-title">${escapeHtml(displayName)}</span>
+          <span class="item-url">${escapeHtml(href)}</span>
+        </a>
+      </div>
+      <button class="btn-remove" data-type="${type}" data-id="${escapeHtml(item.id)}" title="Remove from whitelist" aria-label="Remove ${type}">Remove</button>
+    </div>
+  `;
+}
 
 async function initPopup() {
   const storage = await getStorage();
@@ -75,26 +106,29 @@ async function showMainUI() {
 
   const addUrlBtn = document.getElementById('addUrlBtn') as HTMLButtonElement;
   const urlInput = document.getElementById('urlInput') as HTMLInputElement;
+  const nameInput = document.getElementById('nameInput') as HTMLInputElement;
 
   addUrlBtn.addEventListener('click', async () => {
     const url = urlInput.value.trim();
+    const name = nameInput.value.trim() || undefined;
     const videoId = extractVideoIdFromUrl(url);
     const playlistId = extractPlaylistIdFromUrl(url);
 
     if (videoId) {
-      await addVideoToWhitelist(videoId);
+      await addVideoToWhitelist(videoId, name);
       urlInput.value = '';
+      nameInput.value = '';
       updateWhitelists();
     } else if (playlistId) {
-      await addPlaylistToWhitelist(playlistId);
+      await addPlaylistToWhitelist(playlistId, name);
       urlInput.value = '';
+      nameInput.value = '';
       updateWhitelists();
     } else {
       alert('Could not extract video or playlist ID from URL');
     }
   });
 
-  // Unlock presets
   const presetButtons = document.querySelectorAll('.btn-preset') as NodeListOf<HTMLButtonElement>;
   presetButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -122,53 +156,22 @@ async function updateWhitelists() {
   const videoCount = document.getElementById('videoCount') as HTMLElement;
   const playlistCount = document.getElementById('playlistCount') as HTMLElement;
 
-  // Videos
   if (storage.whitelist.videos.length === 0) {
     videoList.innerHTML = '<p class="empty-state">No videos whitelisted yet</p>';
     videoCount.textContent = '0';
   } else {
-    videoList.innerHTML = storage.whitelist.videos
-      .map(
-        (id) => `
-      <div class="list-item">
-        <div class="item-content">
-          <a href="https://youtube.com/watch?v=${encodeURIComponent(id)}" target="_blank" rel="noopener" class="item-link" title="Watch on YouTube">
-            <span class="item-id">${id}</span>
-            <span class="link-icon">↗</span>
-          </a>
-        </div>
-        <button class="btn-remove" data-type="video" data-id="${id}" title="Remove from whitelist">✕</button>
-      </div>
-    `
-      )
-      .join('');
+    videoList.innerHTML = storage.whitelist.videos.map((item) => renderWhitelistItem(item, 'video')).join('');
     videoCount.textContent = storage.whitelist.videos.length.toString();
   }
 
-  // Playlists
   if (storage.whitelist.playlists.length === 0) {
     playlistList.innerHTML = '<p class="empty-state">No playlists whitelisted yet</p>';
     playlistCount.textContent = '0';
   } else {
-    playlistList.innerHTML = storage.whitelist.playlists
-      .map(
-        (id) => `
-      <div class="list-item">
-        <div class="item-content">
-          <a href="https://youtube.com/playlist?list=${encodeURIComponent(id)}" target="_blank" rel="noopener" class="item-link" title="Watch on YouTube">
-            <span class="item-id">${id}</span>
-            <span class="link-icon">↗</span>
-          </a>
-        </div>
-        <button class="btn-remove" data-type="playlist" data-id="${id}" title="Remove from whitelist">✕</button>
-      </div>
-    `
-      )
-      .join('');
+    playlistList.innerHTML = storage.whitelist.playlists.map((item) => renderWhitelistItem(item, 'playlist')).join('');
     playlistCount.textContent = storage.whitelist.playlists.length.toString();
   }
 
-  // Add remove listeners
   document.querySelectorAll('.btn-remove').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       const target = e.target as HTMLButtonElement;
@@ -198,7 +201,7 @@ async function updateUnlockStatus() {
     const remainingSeconds = Math.floor(remainingMs / 1000);
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
-    unlockStatus.innerHTML = `🔓 <strong>Unlocked</strong> for ${minutes}m ${seconds}s`;
+    unlockStatus.innerHTML = `<strong>Unlocked</strong> for ${minutes}m ${seconds}s`;
   }
 }
 
