@@ -139,9 +139,9 @@ if (urlText) {
 }
 
 startBlockTimer().catch((error) => {
-  console.error('[FocusedTube Block Page] Could not start timer:', error);
+  console.error('[Lockin Block Page] Could not start timer:', error);
 });
 
 renderWhitelist().catch((error) => {
-  console.error('[FocusedTube Block Page] Could not render whitelist:', error);
+  console.error('[Lockin Block Page] Could not render whitelist:', error);
 });

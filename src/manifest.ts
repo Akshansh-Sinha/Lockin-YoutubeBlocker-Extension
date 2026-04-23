@@ -2,7 +2,7 @@ import { defineManifest } from '@crxjs/vite-plugin';
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'FocusedTube',
+  name: 'Lockin',
   version: '1.0.0',
   description: 'Turn YouTube into a controlled learning tool',
   permissions: [
@@ -20,7 +20,7 @@ export default defineManifest({
   },
   action: {
     default_popup: 'src/ui/popup/index.html',
-    default_title: 'FocusedTube',
+    default_title: 'Lockin',
   },
   content_scripts: [
     {

@@ -19,7 +19,7 @@ export async function makeDecision(url: URL): Promise<Verdict> {
 
     return await getVerdict(context);
   } catch (error) {
-    console.error('[FocusedTube] Decision error:', error);
+    console.error('[Lockin] Decision error:', error);
     return { action: 'block', reason: 'Internal error' };
   }
 }
@@ -52,7 +52,7 @@ export async function handleNavigation(url: URL): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('[FocusedTube] Navigation handler error:', error);
+    console.error('[Lockin] Navigation handler error:', error);
     // Fail closed: redirect to block page on error
     const encodedUrl = encodeURIComponent(url.toString());
     const blockPageUrl = `${BLOCK_PAGE}?from=${encodedUrl}&reason=Internal%20error`;

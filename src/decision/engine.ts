@@ -39,7 +39,7 @@ export async function getVerdict(ctx: Context): Promise<Verdict> {
     // Should not reach here (default rule always returns)
     return { action: 'block', reason: 'No verdict' };
   } catch (error) {
-    console.error('[FocusedTube] Decision engine error:', error);
+    console.error('[Lockin] Decision engine error:', error);
     return { action: 'block', reason: 'Internal error' };
   }
 }

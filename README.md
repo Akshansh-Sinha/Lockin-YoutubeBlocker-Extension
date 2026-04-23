@@ -1,4 +1,4 @@
-# FocusedTube
+# Lockin
 
 Turn YouTube into a controlled learning tool. Only pre-approved videos and playlists are accessible; everything else is blocked.
 
@@ -45,7 +45,7 @@ See `ARCHITECTURE.md` for module boundaries, data flow, and storage schema.
 
 ## Limitations
 
-- **Not a security boundary:** A motivated user can disable the extension from `chrome://extensions`. FocusedTube is a focus tool, not a parental control.
+- **Not a security boundary:** A motivated user can disable the extension from `chrome://extensions`. Lockin is a focus tool, not a parental control.
 - **Phase 1 is strict:** Only exact video/playlist IDs are whitelisted. Future phases will add keyword filtering and semantic relevance scoring.
 
 ## Roadmap

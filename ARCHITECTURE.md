@@ -156,7 +156,7 @@ Rule registry (priority order):
 
 ## Known limitations
 
-- **Not a security boundary:** A determined user can disable the extension from `chrome://extensions` or edit storage directly. FocusedTube is a focus tool.
+- **Not a security boundary:** A determined user can disable the extension from `chrome://extensions` or edit storage directly. Lockin is a focus tool.
 - **SPA navigation:** We rely on `onHistoryStateUpdated` + content script message fallback. If both fail, a user could navigate via JavaScript without triggering the decision engine. (Unlikely; `onHistoryStateUpdated` is reliable.)
 - **YouTube selectors (Phase 2):** YouTube frequently changes DOM structure. We log warnings if selectors fail to match; the page still loads (degraded).
 

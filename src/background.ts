@@ -47,7 +47,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         });
       })
       .catch((error) => {
-        console.error('[FocusedTube] Decision error:', error);
+        console.error('[Lockin] Decision error:', error);
         sendResponse({ action: 'block', reason: 'Decision error' });
       });
     return true; // Indicate we'll send a response asynchronously
@@ -57,11 +57,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     fetchYouTubeTitle('video', message.videoId)
       .then((title) => addVideoToWhitelist(message.videoId, message.name ?? title))
       .then(() => {
-        console.log('[FocusedTube] Video added to whitelist:', message.videoId);
+        console.log('[Lockin] Video added to whitelist:', message.videoId);
         sendResponse({ success: true });
       })
       .catch((error) => {
-        console.error('[FocusedTube] Error adding video:', error);
+        console.error('[Lockin] Error adding video:', error);
         sendResponse({ success: false, error: String(error) });
       });
     return true;
@@ -71,15 +71,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     fetchYouTubeTitle('playlist', message.playlistId)
       .then((title) => addPlaylistToWhitelist(message.playlistId, message.name ?? title))
       .then(() => {
-        console.log('[FocusedTube] Playlist added to whitelist:', message.playlistId);
+        console.log('[Lockin] Playlist added to whitelist:', message.playlistId);
         sendResponse({ success: true });
       })
       .catch((error) => {
-        console.error('[FocusedTube] Error adding playlist:', error);
+        console.error('[Lockin] Error adding playlist:', error);
         sendResponse({ success: false, error: String(error) });
       });
     return true;
   }
 });
 
-console.log('[FocusedTube] Service worker initialized');
+console.log('[Lockin] Service worker initialized');

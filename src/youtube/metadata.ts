@@ -56,7 +56,7 @@ export async function fetchYouTubeTitle(type: YouTubeEntryType, id: string): Pro
   try {
     return await fetchOEmbedTitle(url) ?? await fetchPageTitle(url);
   } catch (error) {
-    console.warn('[FocusedTube] Could not fetch YouTube title:', error);
+    console.warn('[Lockin] Could not fetch YouTube title:', error);
     return undefined;
   }
 }
