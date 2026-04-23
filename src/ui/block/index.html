@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusedTube — Blocked</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="content">
+      <h1>🚫 This URL is blocked</h1>
+      <p id="reason" class="reason"></p>
+
+      <div id="actions" class="actions">
+        <button id="backBtn" class="btn btn-secondary">← Go back</button>
+        <button id="addBtn" class="btn btn-primary" style="display: none;">+ Add to whitelist</button>
+      </div>
+
+      <p class="help-text">
+        To add this URL to your whitelist, use the <strong>FocusedTube extension popup</strong>.
+      </p>
+    </div>
+  </div>
+
+  <script type="module" src="./block.ts"></script>
+</body>
+</html>
