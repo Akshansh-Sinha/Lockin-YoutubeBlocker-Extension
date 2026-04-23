@@ -13,8 +13,12 @@ import { extractVideoIdFromUrl, extractPlaylistIdFromUrl } from '@/interception/
 import type { WhitelistItem } from '@/storage/types';
 import { buildYouTubeUrl, fetchYouTubeTitle } from '@/youtube/metadata';
 
-let hasPassword = false;
 let isHydratingNames = false;
+const DISABLE_CHALLENGE_ANSWER = 'i have completed my studies';
+
+function normalizeAnswer(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -42,70 +46,9 @@ function renderWhitelistItem(item: WhitelistItem, type: 'video' | 'playlist'): s
   `;
 }
 
-
-
 async function initPopup() {
-  const storage = await getStorage();
-  hasPassword = storage.security.passwordHash !== null;
-
-  if (!hasPassword) {
-    showFirstRun();
-  } else {
-    showMainUI();
-  }
-}
-
-function showFirstRun() {
-  const setupDiv = document.getElementById('firstRunSetup') as HTMLDivElement;
-  setupDiv.style.display = 'block';
-
-  const setupBtn = document.getElementById('setupBtn') as HTMLButtonElement;
-  const passwordInput = document.getElementById('setupPassword') as HTMLInputElement;
-  const confirmInput = document.getElementById('setupPasswordConfirm') as HTMLInputElement;
-
-  setupBtn.addEventListener('click', async () => {
-    const password = passwordInput.value;
-    const confirm = confirmInput.value;
-
-    if (password.length < 8) {
-      alert('Password must be at least 8 characters');
-      return;
-    }
-
-    if (password !== confirm) {
-      alert('Passwords do not match');
-      return;
-    }
-
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const saltBase64 = btoa(String.fromCharCode(...salt));
-
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-
-    const key = await crypto.subtle.importKey('raw', data, 'PBKDF2', false, ['deriveBits']);
-    const hash = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: salt,
-        iterations: 100000,
-        hash: 'SHA-256',
-      },
-      key,
-      256
-    );
-
-    const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
-
-    const storage = await getStorage();
-    storage.security.passwordHash = hashBase64;
-    storage.security.salt = saltBase64;
-    await chrome.storage.local.set(storage);
-
-    hasPassword = true;
-    setupDiv.style.display = 'none';
-    showMainUI();
-  });
+  await getStorage();
+  showMainUI();
 }
 
 async function showMainUI() {
@@ -190,11 +133,11 @@ async function showDisableChallenge() {
   const answerInput = document.getElementById('challengeAnswer') as HTMLInputElement;
   const error = document.getElementById('challengeError') as HTMLElement;
 
-  answerInput.type = 'password';
+  answerInput.type = 'text';
   answerInput.value = '';
   error.textContent = '';
 
-  question.textContent = 'Enter your setup password to disable blocking.';
+  question.textContent = 'Type "I have completed my studies" to disable blocking.';
 
   challenge.style.display = 'block';
   answerInput.focus();
@@ -203,35 +146,10 @@ async function showDisableChallenge() {
 async function confirmDisable() {
   const answerInput = document.getElementById('challengeAnswer') as HTMLInputElement;
   const error = document.getElementById('challengeError') as HTMLElement;
-  const password = answerInput.value;
+  const answer = normalizeAnswer(answerInput.value);
 
-  const storage = await getStorage();
-  if (!storage.security.passwordHash || !storage.security.salt) {
-    error.textContent = 'Security configuration missing. Cannot disable.';
-    return;
-  }
-
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  
-  // Re-hash using stored salt
-  const salt = Uint8Array.from(atob(storage.security.salt), c => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey('raw', data, 'PBKDF2', false, ['deriveBits']);
-  const hash = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: salt,
-      iterations: 100000,
-      hash: 'SHA-256',
-    },
-    key,
-    256
-  );
-
-  const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
-
-  if (hashBase64 !== storage.security.passwordHash) {
-    error.textContent = 'Incorrect password. Focus remains locked.';
+  if (answer !== DISABLE_CHALLENGE_ANSWER) {
+    error.textContent = 'Type the exact phrase to disable blocking.';
     return;
   }
 

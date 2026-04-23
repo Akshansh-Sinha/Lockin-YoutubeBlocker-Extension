@@ -72,10 +72,7 @@ Lockin uses an aggressive default-deny approach: the moment you enable it, **the
 
 To use YouTube intentionally, follow these steps to manage your study sessions effectively:
 
-### 1. First-Time Setup
-Click the Lockin icon in your Google Chrome toolbar. On your very first launch, you will be prompted to create a **Setup Password**. This passcode securely protects your whitelist and prevents you from impulsively turning the blocker off at 2 AM. Do not forget it!
-
-### 2. Whitelisting Specific Content
+### 1. Whitelisting Specific Content
 You can whitelist any URL directly from YouTube, whether it is a singular educational video or an entire playlist.
 - Copy the exact YouTube web URL. 
 - Open the Lockin popup from your toolbar.
@@ -90,6 +87,7 @@ If you genuinely need to explore the platform to research something or take a br
 
 ### 4. Overriding & Disabling
 If you are done studying for the day and want to turn Lockin off completely:
-- Hit the red **Disable** button.
-- Lockin will demand the **Setup Password** you configured on your first run. 
-- Submit it to remove the blockers. You can instantly turn it back to aggressive mode via the **Enable blocking** switch!
+- Hit the red **Disable** button inside the extension popup.
+- You will be prompted to type the exact phrase: **"I have completed my studies"**
+- Submit it to confirm your intent and remove the blockers.
+- You can instantly re-enable the blocker anytime via the **Enable blocking** button!
