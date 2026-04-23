@@ -42,7 +42,10 @@ export async function getStorage(): Promise<StorageSchema> {
     whitelist: normalizeWhitelist(stored.whitelist, schema.whitelist),
     settings: stored.settings ?? schema.settings,
     security: stored.security ?? schema.security,
-    override: stored.override ?? schema.override,
+    override: {
+      ...schema.override,
+      ...stored.override,
+    },
     rateLimit: stored.rateLimit ?? schema.rateLimit,
   };
 }
@@ -121,7 +124,28 @@ export async function setPasswordHash(hash: string, salt: string): Promise<void>
 export async function setOverrideExpiry(ms: number | null): Promise<void> {
   const schema = await getStorage();
   schema.override.activeUntil = ms;
+  if (ms !== null) {
+    schema.override.disabled = false;
+    schema.override.blockingSessionStartedAt ??= Date.now();
+  }
   await setStorage(schema);
+}
+
+export async function setBlockingDisabled(disabled: boolean): Promise<void> {
+  const schema = await getStorage();
+  schema.override.disabled = disabled;
+  schema.override.activeUntil = null;
+  schema.override.blockingSessionStartedAt = disabled ? null : Date.now();
+  await setStorage(schema);
+}
+
+export async function ensureBlockingSessionStarted(): Promise<number> {
+  const schema = await getStorage();
+  if (schema.override.blockingSessionStartedAt === null) {
+    schema.override.blockingSessionStartedAt = Date.now();
+    await setStorage(schema);
+  }
+  return schema.override.blockingSessionStartedAt;
 }
 
 export async function setRateLimit(attemptCount: number, lockedUntil: number | null): Promise<void> {

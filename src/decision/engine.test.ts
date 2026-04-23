@@ -86,7 +86,7 @@ describe('decision engine', () => {
     const context: Context = {
       url: new URL('https://youtube.com/'),
       now: Date.now(),
-      override: { activeUntil: futureTime },
+      override: { activeUntil: futureTime, disabled: false, blockingSessionStartedAt: Date.now() },
       settings: defaults.settings,
       whitelist: defaults.whitelist,
     };
@@ -96,13 +96,27 @@ describe('decision engine', () => {
     expect(verdict.reason).toBe('Override active');
   });
 
+  it('should allow all URLs when blocking is disabled', async () => {
+    const context: Context = {
+      url: new URL('https://youtube.com/'),
+      now: Date.now(),
+      override: { activeUntil: null, disabled: true, blockingSessionStartedAt: null },
+      settings: defaults.settings,
+      whitelist: defaults.whitelist,
+    };
+
+    const verdict = await getVerdict(context);
+    expect(verdict.action).toBe('allow');
+    expect(verdict.reason).toBe('Blocking disabled');
+  });
+
   it('should not allow expired override', async () => {
     const pastTime = Date.now() - 1000; // 1 second ago
 
     const context: Context = {
       url: new URL('https://youtube.com/'),
       now: Date.now(),
-      override: { activeUntil: pastTime },
+      override: { activeUntil: pastTime, disabled: false, blockingSessionStartedAt: Date.now() },
       settings: defaults.settings,
       whitelist: defaults.whitelist,
     };

@@ -2,6 +2,14 @@ import type { Rule, Verdict, Context } from './types';
 import { whitelistRule } from './rules/whitelist';
 
 const rules: Rule[] = [
+  // Disabled rule: if blocking is disabled, allow all
+  (ctx: Context): Verdict | null => {
+    if (ctx.override.disabled) {
+      return { action: 'allow', reason: 'Blocking disabled' };
+    }
+    return null;
+  },
+
   // Override rule: if override is active, allow all
   (ctx: Context): Verdict | null => {
     if (ctx.override.activeUntil !== null && ctx.now < ctx.override.activeUntil) {

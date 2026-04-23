@@ -23,6 +23,8 @@ export interface SecurityData {
 
 export interface OverrideState {
   activeUntil: number | null;
+  disabled: boolean;
+  blockingSessionStartedAt: number | null;
 }
 
 export interface RateLimitData {

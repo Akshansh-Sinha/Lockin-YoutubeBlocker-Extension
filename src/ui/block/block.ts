@@ -1,4 +1,4 @@
-import { getStorage } from '@/storage/index';
+import { ensureBlockingSessionStarted, getStorage } from '@/storage/index';
 import type { WhitelistItem } from '@/storage/types';
 import { buildYouTubeUrl, type YouTubeEntryType } from '@/youtube/metadata';
 
@@ -32,6 +32,35 @@ function renderRow(item: WhitelistItem, type: YouTubeEntryType): string {
       </td>
     </tr>
   `;
+}
+
+function formatElapsedTime(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const paddedMinutes = String(minutes).padStart(2, '0');
+  const paddedSeconds = String(seconds).padStart(2, '0');
+
+  return hours > 0
+    ? `${hours}:${paddedMinutes}:${paddedSeconds}`
+    : `${paddedMinutes}:${paddedSeconds}`;
+}
+
+async function startBlockTimer() {
+  const timer = document.getElementById('blockTimer');
+  if (!timer) {
+    return;
+  }
+
+  const startedAt = await ensureBlockingSessionStarted();
+
+  const updateTimer = () => {
+    const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+    timer.textContent = formatElapsedTime(elapsedSeconds);
+  };
+
+  updateTimer();
+  setInterval(updateTimer, 1000);
 }
 
 async function renderWhitelist() {
@@ -69,6 +98,10 @@ const urlText = document.getElementById('urlText');
 if (urlText) {
   urlText.textContent = decodedUrl ? `Blocked: ${decodedUrl}` : '';
 }
+
+startBlockTimer().catch((error) => {
+  console.error('[FocusedTube Block Page] Could not start timer:', error);
+});
 
 renderWhitelist().catch((error) => {
   console.error('[FocusedTube Block Page] Could not render whitelist:', error);

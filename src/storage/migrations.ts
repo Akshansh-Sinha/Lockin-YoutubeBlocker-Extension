@@ -20,6 +20,8 @@ export function getDefaults(): StorageSchema {
     },
     override: {
       activeUntil: null,
+      disabled: false,
+      blockingSessionStartedAt: null,
     },
     rateLimit: {
       attemptCount: 0,

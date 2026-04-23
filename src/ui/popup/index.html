@@ -57,9 +57,23 @@
           <button class="btn btn-preset" data-minutes="2">2 min</button>
           <button class="btn btn-preset" data-minutes="5">5 min</button>
           <button class="btn btn-preset" data-minutes="10">10 min</button>
-          <button class="btn btn-preset" data-minutes="30">30 min</button>
         </div>
         <p id="unlockStatus" class="unlock-status"></p>
+      </div>
+
+      <div class="section disable-section">
+        <h3>Disable blocking</h3>
+        <button id="disableBtn" class="btn btn-danger btn-full">Disable</button>
+        <button id="enableBtn" class="btn btn-preset btn-full" style="display: none;">Enable blocking</button>
+        <div id="disableChallenge" class="challenge" style="display: none;">
+          <p id="challengeQuestion" class="challenge-question"></p>
+          <input id="challengeAnswer" type="text" placeholder="Answer" class="input-field" />
+          <div class="challenge-actions">
+            <button id="confirmDisableBtn" class="btn btn-danger">Confirm</button>
+            <button id="cancelDisableBtn" class="btn btn-preset">Cancel</button>
+          </div>
+          <p id="challengeError" class="challenge-error"></p>
+        </div>
       </div>
     </div>
   </div>

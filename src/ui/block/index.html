@@ -43,8 +43,33 @@
       padding: 9vh 0 42px;
     }
 
+    .hero-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .block-timer {
+      width: clamp(150px, 18vw, 210px);
+      flex: 0 0 auto;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--accent);
+      font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
+      font-size: clamp(36px, 4.5vw, 60px);
+      font-weight: 720;
+      line-height: 1;
+      text-align: center;
+    }
+
     h1 {
+      min-width: min(100%, 420px);
       max-width: 760px;
+      flex: 1 1 420px;
       color: var(--text);
       font-size: clamp(56px, 10vw, 118px);
       font-weight: 720;
@@ -151,6 +176,18 @@
         padding-top: 6vh;
       }
 
+      .hero-title {
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 14px;
+      }
+
+      .block-timer {
+        width: 126px;
+        padding: 11px 13px;
+        font-size: 28px;
+      }
+
       th:nth-child(2),
       td:nth-child(2) {
         display: none;
@@ -161,7 +198,10 @@
 <body>
   <main>
     <section class="hero">
-      <h1>Time to study</h1>
+      <div class="hero-title">
+        <h1>Time to study</h1>
+        <div class="block-timer" id="blockTimer" aria-label="Blocker active time">00:00</div>
+      </div>
       <p class="requested-url" id="urlText"></p>
     </section>
 
