@@ -10,6 +10,7 @@ export default defineManifest({
     'webNavigation',
     'scripting',
     'identity',
+    'tabs',
   ],
   host_permissions: [
     '*://youtube.com/*',

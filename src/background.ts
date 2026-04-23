@@ -2,6 +2,16 @@ import { handleNavigation, makeDecision } from '@/interception/index';
 import { addVideoToWhitelist, addPlaylistToWhitelist, getStorage } from '@/storage/index';
 import { fetchYouTubeTitle } from '@/youtube/metadata';
 
+/**
+ * Returns true when blocking should be bypassed due to an active override
+ * (either fully disabled or a temporary unlock that hasn't expired yet).
+ */
+function isOverrideActive(override: { disabled: boolean; activeUntil: number | null }): boolean {
+  if (override.disabled) return true;
+  if (override.activeUntil !== null && Date.now() < override.activeUntil) return true;
+  return false;
+}
+
 // Listen for hard navigations (onBeforeNavigate)
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) {
@@ -18,8 +28,11 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 
   // In filtered mode, navigation is never intercepted — the content script
   // handles DOM-level filtering instead.
-  const { mode } = await getStorage();
+  const { mode, override } = await getStorage();
   if (mode === 'filtered') return;
+
+  // If override is active (disabled or temp unlock), let YouTube run freely.
+  if (isOverrideActive(override)) return;
 
   handleNavigation(url);
 });
@@ -39,8 +52,11 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
   }
 
   // In filtered mode, skip interception entirely.
-  const { mode } = await getStorage();
+  const { mode, override } = await getStorage();
   if (mode === 'filtered') return;
+
+  // If override is active (disabled or temp unlock), let YouTube run freely.
+  if (isOverrideActive(override)) return;
 
   handleNavigation(url);
 });

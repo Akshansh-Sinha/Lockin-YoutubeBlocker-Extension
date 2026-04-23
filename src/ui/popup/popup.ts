@@ -20,6 +20,52 @@ import { buildYouTubeUrl, fetchYouTubeTitle } from '@/youtube/metadata';
 let isHydratingNames = false;
 const DISABLE_CHALLENGE_ANSWER = 'i have completed my studies';
 
+const BLOCK_PAGE_URL = chrome.runtime.getURL('src/ui/block/index.html');
+
+/**
+ * After an override/mode change, navigate the user back to YouTube.
+ *
+ * Priority:
+ *  1. Active tab is the block page → extract the original URL from ?from= and go there.
+ *  2. Active tab is a YouTube tab  → reload it so the content script re-initialises.
+ *  3. Fallback: find any open YouTube tab and reload it.
+ */
+async function navigateAfterOverride(): Promise<void> {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+
+  if (tab?.id && tab.url) {
+    // ── Case 1: currently on the block page ───────────────────────────────
+    if (tab.url.startsWith(BLOCK_PAGE_URL)) {
+      try {
+        const params = new URL(tab.url).searchParams;
+        const originalUrl = params.get('from');
+        if (originalUrl) {
+          await chrome.tabs.update(tab.id, { url: decodeURIComponent(originalUrl) });
+          return;
+        }
+      } catch {
+        // Malformed URL — fall through to reload
+      }
+      // No from= param; just go to YouTube home
+      await chrome.tabs.update(tab.id, { url: 'https://www.youtube.com/' });
+      return;
+    }
+
+    // ── Case 2: already on a YouTube tab ────────────────────────────────
+    if (tab.url.includes('youtube.com')) {
+      await chrome.tabs.reload(tab.id);
+      return;
+    }
+  }
+
+  // ── Case 3: popup opened from a non-YT tab — find any YouTube tab ───
+  const ytTabs = await chrome.tabs.query({ url: '*://*.youtube.com/*' });
+  for (const t of ytTabs) {
+    if (t.id) await chrome.tabs.reload(t.id);
+  }
+}
+
 function normalizeAnswer(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
@@ -184,13 +230,15 @@ async function showMainUI() {
       const newMode = btn.dataset.mode as 'strict' | 'filtered';
       await setMode(newMode);
       updateModeToggle(newMode);
+      // Reload the YouTube tab so the new mode activates immediately.
+      await navigateAfterOverride();
     });
   });
 
   updateModeToggle((await getStorage()).mode);
 
   // ── Preset unlock buttons ──────────────────────────────────────────────────
-  const presetButtons = document.querySelectorAll('.btn-preset') as NodeListOf<HTMLButtonElement>;
+  const presetButtons = document.querySelectorAll('.btn-preset[data-minutes]') as NodeListOf<HTMLButtonElement>;
   presetButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
       const minutesStr = btn.dataset.minutes;
@@ -201,8 +249,9 @@ async function showMainUI() {
       const unlockUntil = Date.now() + minutes * 60 * 1000;
 
       await setOverrideExpiry(unlockUntil);
-
       updateUnlockStatus();
+      // Reload YouTube so the override takes effect immediately (no more blocking).
+      await navigateAfterOverride();
     });
   });
 
@@ -219,6 +268,8 @@ async function showMainUI() {
     await setBlockingDisabled(false);
     hideDisableChallenge();
     updateUnlockStatus();
+    // Re-enable blocking: reload so the content script starts with blocking active.
+    await navigateAfterOverride();
   });
 
   confirmDisableBtn.addEventListener('click', confirmDisable);
@@ -258,6 +309,8 @@ async function confirmDisable() {
   await setBlockingDisabled(true);
   hideDisableChallenge();
   updateUnlockStatus();
+  // Reload YouTube so blocking stops immediately.
+  await navigateAfterOverride();
 }
 
 function hideDisableChallenge() {

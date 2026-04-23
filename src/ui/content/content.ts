@@ -388,18 +388,63 @@ function setupHistoryListener(): void {
 
 // ─── Startup ──────────────────────────────────────────────────────────────────
 
+/** Track what mode we booted with so we can detect transitions. */
+let bootedMode: 'strict' | 'filtered' | null = null;
+
 async function init(): Promise<void> {
   const { mode, whitelist, override } = await getStorage();
+  bootedMode = mode;
 
   if (mode === 'strict') {
-    setupHistoryListener();
+    // Only intercept navigation if override is NOT active.
+    // If the user has disabled blocking or set a temp unlock, YouTube should run freely.
+    const overrideIsActive =
+      override.disabled ||
+      (override.activeUntil !== null && Date.now() < override.activeUntil);
+
+    if (!overrideIsActive) {
+      setupHistoryListener();
+    }
   } else {
     activateDOMFilter(whitelist, override);
   }
 
-  // Any storage change → reload for a clean re-init in the correct mode
-  // with a fresh whitelist.
-  chrome.storage.onChanged.addListener(() => {
+  chrome.storage.onChanged.addListener(async () => {
+    const { mode: newMode, whitelist: newWhitelist, override: newOverride } = await getStorage();
+
+    // ── Case 1: strict → filtered ─────────────────────────────────────────
+    // We can transition smoothly in-place. No reload needed.
+    if (bootedMode === 'strict' && newMode === 'filtered') {
+      bootedMode = 'filtered';
+      // Remove the old history intercept by reloading — YouTube is a SPA so
+      // the history hooks from setupHistoryListener() are already in memory.
+      // The cleanest way is a reload so the new mode's DOM filter starts fresh.
+      window.location.reload();
+      return;
+    }
+
+    // ── Case 2: strict disabled / temporarily unlocked ────────────────────
+    // Override changed while in strict mode → reload so the page gets a clean
+    // YouTube experience (no block-page redirects should fire).
+    if (bootedMode === 'strict') {
+      window.location.reload();
+      return;
+    }
+
+    // ── Case 3: filtered → strict ─────────────────────────────────────────
+    if (bootedMode === 'filtered' && newMode === 'strict') {
+      window.location.reload();
+      return;
+    }
+
+    // ── Case 4: filtered mode — whitelist or override changed ─────────────
+    // Re-run the DOM filter in-place for a smooth, instant update.
+    if (bootedMode === 'filtered' && newMode === 'filtered') {
+      filterAllTiles(newWhitelist, newOverride);
+      return;
+    }
+
+    // Fallback: reload for any other unexpected transition.
     window.location.reload();
   });
 }
