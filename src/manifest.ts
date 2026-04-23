@@ -4,7 +4,7 @@ export default defineManifest({
   manifest_version: 3,
   name: 'Lockin',
   version: '1.0.0',
-  description: 'Turn YouTube into a controlled learning tool',
+  description: 'Stay completely focused and locked in by turning YouTube into a highly intentional learning tool.',
   permissions: [
     'storage',
     'webNavigation',

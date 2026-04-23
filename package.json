@@ -1,7 +1,7 @@
 {
   "name": "lockin",
   "version": "1.0.0",
-  "description": "Turn YouTube into a controlled learning tool",
+  "description": "Stay completely focused and locked in by turning YouTube into a highly intentional learning tool.",
   "type": "module",
   "scripts": {
     "dev": "vite",
