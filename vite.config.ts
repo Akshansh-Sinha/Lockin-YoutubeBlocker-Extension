@@ -13,6 +13,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
+      input: {
+        block: path.resolve(__dirname, 'src/ui/block/index.html'),
+      },
       output: {
         manualChunks: undefined,
       },
