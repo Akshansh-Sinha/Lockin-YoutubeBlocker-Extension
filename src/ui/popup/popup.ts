@@ -1,8 +1,18 @@
-import { getStorage, addVideoToWhitelist, addPlaylistToWhitelist, removeVideoFromWhitelist, removePlaylistFromWhitelist } from '@/storage/index';
+import {
+  getStorage,
+  addVideoToWhitelist,
+  addPlaylistToWhitelist,
+  removeVideoFromWhitelist,
+  removePlaylistFromWhitelist,
+  setVideoWhitelistName,
+  setPlaylistWhitelistName,
+} from '@/storage/index';
 import { extractVideoIdFromUrl, extractPlaylistIdFromUrl } from '@/interception/classifier';
 import type { WhitelistItem } from '@/storage/types';
+import { buildYouTubeUrl, fetchYouTubeTitle } from '@/youtube/metadata';
 
 let hasPassword = false;
+let isHydratingNames = false;
 
 function escapeHtml(value: string): string {
   return value
@@ -14,12 +24,8 @@ function escapeHtml(value: string): string {
 }
 
 function renderWhitelistItem(item: WhitelistItem, type: 'video' | 'playlist'): string {
-  const encodedId = encodeURIComponent(item.id);
-  const href =
-    type === 'video'
-      ? `https://youtube.com/watch?v=${encodedId}`
-      : `https://youtube.com/playlist?list=${encodedId}`;
-  const displayName = item.name?.trim() || (type === 'video' ? 'Untitled video' : 'Untitled playlist');
+  const href = buildYouTubeUrl(type, item.id);
+  const displayName = item.name?.trim() || (type === 'video' ? `Video ${item.id}` : `Playlist ${item.id}`);
 
   return `
     <div class="list-item">
@@ -110,16 +116,18 @@ async function showMainUI() {
 
   addUrlBtn.addEventListener('click', async () => {
     const url = urlInput.value.trim();
-    const name = nameInput.value.trim() || undefined;
+    const typedName = nameInput.value.trim() || undefined;
     const videoId = extractVideoIdFromUrl(url);
     const playlistId = extractPlaylistIdFromUrl(url);
 
     if (videoId) {
+      const name = typedName ?? await fetchYouTubeTitle('video', videoId);
       await addVideoToWhitelist(videoId, name);
       urlInput.value = '';
       nameInput.value = '';
       updateWhitelists();
     } else if (playlistId) {
+      const name = typedName ?? await fetchYouTubeTitle('playlist', playlistId);
       await addPlaylistToWhitelist(playlistId, name);
       urlInput.value = '';
       nameInput.value = '';
@@ -187,6 +195,47 @@ async function updateWhitelists() {
       updateWhitelists();
     });
   });
+
+  hydrateMissingWhitelistNames(storage.whitelist.videos, storage.whitelist.playlists);
+}
+
+async function hydrateMissingWhitelistNames(videos: WhitelistItem[], playlists: WhitelistItem[]) {
+  if (isHydratingNames) {
+    return;
+  }
+
+  const missingVideos = videos.filter(item => !item.name);
+  const missingPlaylists = playlists.filter(item => !item.name);
+  if (missingVideos.length === 0 && missingPlaylists.length === 0) {
+    return;
+  }
+
+  isHydratingNames = true;
+  let updated = false;
+
+  try {
+    for (const item of missingVideos) {
+      const title = await fetchYouTubeTitle('video', item.id);
+      if (title) {
+        await setVideoWhitelistName(item.id, title);
+        updated = true;
+      }
+    }
+
+    for (const item of missingPlaylists) {
+      const title = await fetchYouTubeTitle('playlist', item.id);
+      if (title) {
+        await setPlaylistWhitelistName(item.id, title);
+        updated = true;
+      }
+    }
+  } finally {
+    isHydratingNames = false;
+  }
+
+  if (updated) {
+    updateWhitelists();
+  }
 }
 
 async function updateUnlockStatus() {

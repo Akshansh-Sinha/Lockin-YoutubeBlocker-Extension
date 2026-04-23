@@ -53,8 +53,14 @@ export async function setStorage(schema: StorageSchema): Promise<void> {
 
 export async function addVideoToWhitelist(videoId: string, name?: string): Promise<void> {
   const schema = await getStorage();
-  const exists = schema.whitelist.videos.some(item => item.id === videoId);
-  if (!exists) {
+  const existing = schema.whitelist.videos.find(item => item.id === videoId);
+
+  if (existing) {
+    if (name && !existing.name) {
+      existing.name = name;
+      await setStorage(schema);
+    }
+  } else {
     schema.whitelist.videos.push({ id: videoId, name });
     await setStorage(schema);
   }
@@ -68,9 +74,33 @@ export async function removeVideoFromWhitelist(videoId: string): Promise<void> {
 
 export async function addPlaylistToWhitelist(playlistId: string, name?: string): Promise<void> {
   const schema = await getStorage();
-  const exists = schema.whitelist.playlists.some(item => item.id === playlistId);
-  if (!exists) {
+  const existing = schema.whitelist.playlists.find(item => item.id === playlistId);
+
+  if (existing) {
+    if (name && !existing.name) {
+      existing.name = name;
+      await setStorage(schema);
+    }
+  } else {
     schema.whitelist.playlists.push({ id: playlistId, name });
+    await setStorage(schema);
+  }
+}
+
+export async function setVideoWhitelistName(videoId: string, name: string): Promise<void> {
+  const schema = await getStorage();
+  const item = schema.whitelist.videos.find(entry => entry.id === videoId);
+  if (item && !item.name) {
+    item.name = name;
+    await setStorage(schema);
+  }
+}
+
+export async function setPlaylistWhitelistName(playlistId: string, name: string): Promise<void> {
+  const schema = await getStorage();
+  const item = schema.whitelist.playlists.find(entry => entry.id === playlistId);
+  if (item && !item.name) {
+    item.name = name;
     await setStorage(schema);
   }
 }

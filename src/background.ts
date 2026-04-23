@@ -1,5 +1,6 @@
 import { handleNavigation, makeDecision } from '@/interception/index';
 import { addVideoToWhitelist, addPlaylistToWhitelist } from '@/storage/index';
+import { fetchYouTubeTitle } from '@/youtube/metadata';
 
 // Listen for hard navigations (onBeforeNavigate)
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
@@ -53,7 +54,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'ADD_VIDEO') {
-    addVideoToWhitelist(message.videoId)
+    fetchYouTubeTitle('video', message.videoId)
+      .then((title) => addVideoToWhitelist(message.videoId, message.name ?? title))
       .then(() => {
         console.log('[FocusedTube] Video added to whitelist:', message.videoId);
         sendResponse({ success: true });
@@ -66,7 +68,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'ADD_PLAYLIST') {
-    addPlaylistToWhitelist(message.playlistId)
+    fetchYouTubeTitle('playlist', message.playlistId)
+      .then((title) => addPlaylistToWhitelist(message.playlistId, message.name ?? title))
       .then(() => {
         console.log('[FocusedTube] Playlist added to whitelist:', message.playlistId);
         sendResponse({ success: true });
