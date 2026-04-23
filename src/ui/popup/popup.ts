@@ -15,7 +15,6 @@ import { buildYouTubeUrl, fetchYouTubeTitle } from '@/youtube/metadata';
 
 let hasPassword = false;
 let isHydratingNames = false;
-const DISABLE_CHALLENGE_ANSWER = 'i have completed my studies';
 
 function escapeHtml(value: string): string {
   return value
@@ -43,9 +42,7 @@ function renderWhitelistItem(item: WhitelistItem, type: 'video' | 'playlist'): s
   `;
 }
 
-function normalizeAnswer(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase();
-}
+
 
 async function initPopup() {
   const storage = await getStorage();
@@ -193,10 +190,11 @@ async function showDisableChallenge() {
   const answerInput = document.getElementById('challengeAnswer') as HTMLInputElement;
   const error = document.getElementById('challengeError') as HTMLElement;
 
+  answerInput.type = 'password';
   answerInput.value = '';
   error.textContent = '';
 
-  question.textContent = 'Type "I have completed my studies" to disable blocking.';
+  question.textContent = 'Enter your setup password to disable blocking.';
 
   challenge.style.display = 'block';
   answerInput.focus();
@@ -205,10 +203,35 @@ async function showDisableChallenge() {
 async function confirmDisable() {
   const answerInput = document.getElementById('challengeAnswer') as HTMLInputElement;
   const error = document.getElementById('challengeError') as HTMLElement;
-  const answer = normalizeAnswer(answerInput.value);
+  const password = answerInput.value;
 
-  if (answer !== DISABLE_CHALLENGE_ANSWER) {
-    error.textContent = 'Type the exact confirmation phrase to disable blocking.';
+  const storage = await getStorage();
+  if (!storage.security.passwordHash || !storage.security.salt) {
+    error.textContent = 'Security configuration missing. Cannot disable.';
+    return;
+  }
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  
+  // Re-hash using stored salt
+  const salt = Uint8Array.from(atob(storage.security.salt), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey('raw', data, 'PBKDF2', false, ['deriveBits']);
+  const hash = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    key,
+    256
+  );
+
+  const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
+
+  if (hashBase64 !== storage.security.passwordHash) {
+    error.textContent = 'Incorrect password. Focus remains locked.';
     return;
   }
 
