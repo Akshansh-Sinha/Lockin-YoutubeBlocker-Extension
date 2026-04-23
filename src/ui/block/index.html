@@ -51,19 +51,78 @@
       flex-wrap: wrap;
     }
 
-    .block-timer {
-      width: clamp(150px, 18vw, 210px);
+    .analog-timer {
+      width: clamp(140px, 20vw, 200px); /* slightly larger for numbers */
+      height: clamp(140px, 20vw, 200px);
       flex: 0 0 auto;
-      padding: 16px 18px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      border: 6px solid var(--line);
+      border-radius: 50%;
       background: var(--panel);
-      color: var(--accent);
-      font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
-      font-size: clamp(36px, 4.5vw, 60px);
-      font-weight: 720;
-      line-height: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .number {
+      position: absolute;
+      inset: 8px; /* Space from the edge */
       text-align: center;
+      transform: rotate(var(--rotation));
+      pointer-events: none;
+    }
+
+    .number span {
+      display: inline-block;
+      transform: rotate(calc(-1 * var(--rotation)));
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .hand {
+      position: absolute;
+      bottom: 50%;
+      left: 50%;
+      transform-origin: bottom center;
+      border-radius: 4px;
+      transform: translateX(-50%) rotate(0deg);
+      transition: transform 0.1s cubic-bezier(0.4, 2.08, 0.55, 0.44); /* Bouncy tick effect */
+    }
+
+    .hour-hand {
+      width: 6px;
+      height: 28%;
+      background: var(--text);
+      border-radius: 6px;
+    }
+
+    .minute-hand {
+      width: 4px;
+      height: 40%;
+      background: var(--accent);
+      border-radius: 4px;
+    }
+
+    .second-hand {
+      width: 2px;
+      height: 45%;
+      background: #e74c3c; /* Red color for seconds */
+      border-radius: 2px;
+      /* Remove transition from seconds to prevent weird 360 -> 0 flip issues if not handled */
+      transition: none;
+    }
+
+    .center-dot {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      z-index: 10;
+      border: 2px solid var(--panel);
     }
 
     h1 {
@@ -182,10 +241,10 @@
         gap: 14px;
       }
 
-      .block-timer {
-        width: 126px;
-        padding: 11px 13px;
-        font-size: 28px;
+      .analog-timer {
+        width: 100px;
+        height: 100px;
+        border-width: 4px;
       }
 
       th:nth-child(2),
@@ -200,7 +259,25 @@
     <section class="hero">
       <div class="hero-title">
         <h1>Time to study</h1>
-        <div class="block-timer" id="blockTimer" aria-label="Blocker active time">00:00</div>
+        <div class="analog-timer" id="analogTimer" aria-label="Blocker active time">
+          <div class="number" style="--rotation: 30deg;"><span>1</span></div>
+          <div class="number" style="--rotation: 60deg;"><span>2</span></div>
+          <div class="number" style="--rotation: 90deg;"><span>3</span></div>
+          <div class="number" style="--rotation: 120deg;"><span>4</span></div>
+          <div class="number" style="--rotation: 150deg;"><span>5</span></div>
+          <div class="number" style="--rotation: 180deg;"><span>6</span></div>
+          <div class="number" style="--rotation: 210deg;"><span>7</span></div>
+          <div class="number" style="--rotation: 240deg;"><span>8</span></div>
+          <div class="number" style="--rotation: 270deg;"><span>9</span></div>
+          <div class="number" style="--rotation: 300deg;"><span>10</span></div>
+          <div class="number" style="--rotation: 330deg;"><span>11</span></div>
+          <div class="number" style="--rotation: 360deg;"><span>12</span></div>
+          
+          <div class="hand hour-hand" id="hourHand"></div>
+          <div class="hand minute-hand" id="minuteHand"></div>
+          <div class="hand second-hand" id="secondHand"></div>
+          <div class="center-dot"></div>
+        </div>
       </div>
       <p class="requested-url" id="urlText"></p>
     </section>

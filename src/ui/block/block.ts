@@ -34,29 +34,36 @@ function renderRow(item: WhitelistItem, type: YouTubeEntryType): string {
   `;
 }
 
-function formatElapsedTime(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const paddedMinutes = String(minutes).padStart(2, '0');
-  const paddedSeconds = String(seconds).padStart(2, '0');
 
-  return hours > 0
-    ? `${hours}:${paddedMinutes}:${paddedSeconds}`
-    : `${paddedMinutes}:${paddedSeconds}`;
-}
 
 async function startBlockTimer() {
-  const timer = document.getElementById('blockTimer');
-  if (!timer) {
+  const analogTimer = document.getElementById('analogTimer');
+  const hourHand = document.getElementById('hourHand');
+  const minuteHand = document.getElementById('minuteHand');
+  const secondHand = document.getElementById('secondHand');
+
+  if (!analogTimer || !hourHand || !minuteHand || !secondHand) {
     return;
   }
 
-  const startedAt = await ensureBlockingSessionStarted();
+  // We still want to ensure blocking session started is tracked, even if we show current time
+  await ensureBlockingSessionStarted();
 
   const updateTimer = () => {
-    const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-    timer.textContent = formatElapsedTime(elapsedSeconds);
+    const now = new Date();
+    
+    const seconds = now.getSeconds();
+    const secondsDegrees = seconds * 6;
+    
+    const minutes = now.getMinutes();
+    const minutesDegrees = (minutes * 6) + (seconds / 60) * 6;
+    
+    const hours = now.getHours();
+    const hoursDegrees = ((hours % 12) * 30) + (minutes / 60) * 30;
+
+    secondHand.style.transform = `translateX(-50%) rotate(${secondsDegrees}deg)`;
+    minuteHand.style.transform = `translateX(-50%) rotate(${minutesDegrees}deg)`;
+    hourHand.style.transform = `translateX(-50%) rotate(${hoursDegrees}deg)`;
   };
 
   updateTimer();
