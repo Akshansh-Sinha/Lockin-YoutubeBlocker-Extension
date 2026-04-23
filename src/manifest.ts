@@ -24,8 +24,6 @@ export default defineManifest({
     default_icon: 'logo.png'
   },
   icons: {
-    "16": "logo.png",
-    "48": "logo.png",
     "128": "logo.png"
   },
   content_scripts: [
