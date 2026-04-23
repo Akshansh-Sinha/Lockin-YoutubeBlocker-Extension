@@ -36,7 +36,6 @@ function showFirstRun() {
       return;
     }
 
-    // Hash password using PBKDF2
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const saltBase64 = btoa(String.fromCharCode(...salt));
 
@@ -57,7 +56,6 @@ function showFirstRun() {
 
     const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
 
-    // Store hash + salt
     const storage = await getStorage();
     storage.security.passwordHash = hashBase64;
     storage.security.salt = saltBase64;
@@ -79,7 +77,7 @@ async function showMainUI() {
   const urlInput = document.getElementById('urlInput') as HTMLInputElement;
 
   addUrlBtn.addEventListener('click', async () => {
-    const url = urlInput.value;
+    const url = urlInput.value.trim();
     const videoId = extractVideoIdFromUrl(url);
     const playlistId = extractPlaylistIdFromUrl(url);
 
@@ -113,7 +111,7 @@ async function showMainUI() {
   });
 
   updateUnlockStatus();
-  setInterval(updateUnlockStatus, 1000); // Update every second
+  setInterval(updateUnlockStatus, 1000);
 }
 
 async function updateWhitelists() {
@@ -121,28 +119,54 @@ async function updateWhitelists() {
 
   const videoList = document.getElementById('videoList') as HTMLDivElement;
   const playlistList = document.getElementById('playlistList') as HTMLDivElement;
+  const videoCount = document.getElementById('videoCount') as HTMLElement;
+  const playlistCount = document.getElementById('playlistCount') as HTMLElement;
 
-  videoList.innerHTML = storage.whitelist.videos
-    .map(
-      (id) => `
-    <div class="list-item">
-      <span>${id}</span>
-      <button class="btn-remove" data-type="video" data-id="${id}">✕</button>
-    </div>
-  `
-    )
-    .join('');
+  // Videos
+  if (storage.whitelist.videos.length === 0) {
+    videoList.innerHTML = '<p class="empty-state">No videos whitelisted yet</p>';
+    videoCount.textContent = '0';
+  } else {
+    videoList.innerHTML = storage.whitelist.videos
+      .map(
+        (id) => `
+      <div class="list-item">
+        <div class="item-content">
+          <a href="https://youtube.com/watch?v=${encodeURIComponent(id)}" target="_blank" rel="noopener" class="item-link" title="Watch on YouTube">
+            <span class="item-id">${id}</span>
+            <span class="link-icon">↗</span>
+          </a>
+        </div>
+        <button class="btn-remove" data-type="video" data-id="${id}" title="Remove from whitelist">✕</button>
+      </div>
+    `
+      )
+      .join('');
+    videoCount.textContent = storage.whitelist.videos.length.toString();
+  }
 
-  playlistList.innerHTML = storage.whitelist.playlists
-    .map(
-      (id) => `
-    <div class="list-item">
-      <span>${id}</span>
-      <button class="btn-remove" data-type="playlist" data-id="${id}">✕</button>
-    </div>
-  `
-    )
-    .join('');
+  // Playlists
+  if (storage.whitelist.playlists.length === 0) {
+    playlistList.innerHTML = '<p class="empty-state">No playlists whitelisted yet</p>';
+    playlistCount.textContent = '0';
+  } else {
+    playlistList.innerHTML = storage.whitelist.playlists
+      .map(
+        (id) => `
+      <div class="list-item">
+        <div class="item-content">
+          <a href="https://youtube.com/playlist?list=${encodeURIComponent(id)}" target="_blank" rel="noopener" class="item-link" title="Watch on YouTube">
+            <span class="item-id">${id}</span>
+            <span class="link-icon">↗</span>
+          </a>
+        </div>
+        <button class="btn-remove" data-type="playlist" data-id="${id}" title="Remove from whitelist">✕</button>
+      </div>
+    `
+      )
+      .join('');
+    playlistCount.textContent = storage.whitelist.playlists.length.toString();
+  }
 
   // Add remove listeners
   document.querySelectorAll('.btn-remove').forEach((btn) => {
@@ -174,7 +198,7 @@ async function updateUnlockStatus() {
     const remainingSeconds = Math.floor(remainingMs / 1000);
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
-    unlockStatus.textContent = `🔓 Unlocked for ${minutes}m ${seconds}s`;
+    unlockStatus.innerHTML = `🔓 <strong>Unlocked</strong> for ${minutes}m ${seconds}s`;
   }
 }
 

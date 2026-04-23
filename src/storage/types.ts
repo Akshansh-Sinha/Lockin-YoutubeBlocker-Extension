@@ -1,6 +1,11 @@
+export interface WhitelistItem {
+  id: string;
+  name?: string;
+}
+
 export interface Whitelist {
-  videos: string[];
-  playlists: string[];
+  videos: WhitelistItem[];
+  playlists: WhitelistItem[];
 }
 
 export interface Settings {

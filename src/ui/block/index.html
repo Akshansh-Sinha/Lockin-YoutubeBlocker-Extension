@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FocusedTube — Blocked</title>
+  <title>FocusedTube — Access Restricted</title>
   <style>
     * {
       margin: 0;
@@ -11,215 +11,370 @@
       box-sizing: border-box;
     }
 
+    html, body {
+      height: 100%;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       color: #333;
-    }
-
-    .block-page {
-      min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      gap: 20px;
     }
 
-    .block-card {
-      background: white;
-      border-radius: 16px;
-      padding: 40px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-      max-width: 500px;
+    .container {
       width: 100%;
+      max-width: 550px;
+    }
+
+    .header {
       text-align: center;
+      margin-bottom: 32px;
+      animation: slideDown 0.5s ease-out;
     }
 
-    .block-icon {
-      margin-bottom: 24px;
-      display: flex;
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon-container {
+      display: inline-flex;
+      align-items: center;
       justify-content: center;
+      width: 100px;
+      height: 100px;
+      background: white;
+      border-radius: 50%;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    .block-icon svg {
-      animation: pulse 2s ease-in-out infinite;
+    @keyframes scaleIn {
+      from {
+        transform: scale(0.3);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .icon-container svg {
+      width: 60px;
+      height: 60px;
+      animation: pulse 2.5s ease-in-out infinite;
     }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+      50% { opacity: 0.5; }
     }
 
-    .block-title {
-      font-size: 32px;
-      font-weight: 700;
-      color: #667eea;
-      margin-bottom: 24px;
-      letter-spacing: -0.5px;
+    h1 {
+      font-size: 36px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
     }
 
-    .block-reason {
-      background: #f5f5f5;
-      border-left: 4px solid #667eea;
-      padding: 16px;
-      border-radius: 8px;
+    .subtitle {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 500;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
+      animation: slideUp 0.6s ease-out;
       margin-bottom: 20px;
-      text-align: left;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .reason-section {
+      margin-bottom: 28px;
+      padding-bottom: 28px;
+      border-bottom: 2px solid #f0f0f0;
     }
 
     .reason-label {
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       color: #999;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
     }
 
     .reason-text {
-      font-size: 16px;
-      color: #333;
-      font-weight: 500;
+      font-size: 18px;
+      font-weight: 600;
+      color: #667eea;
+      line-height: 1.5;
     }
 
-    .block-url {
-      background: #f9f9f9;
-      padding: 14px;
-      border-radius: 8px;
-      margin-bottom: 24px;
-      text-align: left;
-      border: 1px solid #eee;
+    .url-section {
+      background: linear-gradient(135deg, #f5f7ff 0%, #f0f4ff 100%);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 28px;
+      border-left: 4px solid #667eea;
     }
 
     .url-label {
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       color: #999;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
     }
 
     .url-text {
       font-size: 13px;
-      color: #666;
-      font-family: 'Monaco', 'Courier New', monospace;
+      color: #555;
+      font-family: 'SF Mono', Monaco, 'Cascade Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
       word-break: break-all;
-      line-height: 1.5;
+      line-height: 1.6;
+      letter-spacing: -0.3px;
     }
 
-    .block-actions {
-      display: flex;
-      flex-direction: column;
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
 
     .btn {
-      padding: 14px 24px;
+      padding: 14px 20px;
       border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-secondary {
-      background: #e0e0e0;
-      color: #333;
-    }
-
-    .btn-secondary:hover {
-      background: #d0d0d0;
-    }
-
-    .success-message {
+      letter-spacing: 0.8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      padding: 14px 24px;
-      background: #f0f9ff;
-      border: 2px solid #4caf50;
-      border-radius: 10px;
-      color: #2e7d32;
-      font-weight: 600;
-      animation: slideIn 0.3s ease-out;
+      gap: 8px;
     }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+    .btn-back {
+      background: #f0f0f0;
+      color: #333;
+      grid-column: 1;
     }
 
-    .block-info {
-      background: #fffbea;
-      border: 1px solid #ffe0b2;
-      border-radius: 10px;
+    .btn-back:hover {
+      background: #e0e0e0;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-add {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      grid-column: 2;
+    }
+
+    .btn-add:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-add:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .add-full {
+      grid-column: 1 / -1;
+    }
+
+    .success-banner {
+      display: none;
+      background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+      color: white;
       padding: 16px;
-      font-size: 14px;
-      color: #666;
-      line-height: 1.6;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideDown 0.4s ease-out;
     }
 
-    .block-debug {
-      width: 100%;
-      max-width: 500px;
+    .success-banner.show {
+      display: flex;
+    }
+
+    .success-banner svg {
+      flex-shrink: 0;
+    }
+
+    .info-box {
+      background: #fffbea;
+      border: 2px solid #ffe0b2;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.7;
+    }
+
+    .info-box strong {
+      color: #f57c00;
+      font-weight: 700;
+    }
+
+    .debug-section {
       margin-top: 20px;
     }
 
-    .block-debug details {
-      background: white;
-      border-radius: 8px;
-      padding: 0;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    .debug-section details {
+      background: #f9f9f9;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+      overflow: hidden;
     }
 
-    .block-debug summary {
+    .debug-section summary {
       padding: 12px 16px;
       cursor: pointer;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       color: #999;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
       user-select: none;
+      background: #f5f5f5;
+      transition: all 0.2s;
     }
 
-    .block-debug pre {
+    .debug-section summary:hover {
+      background: #eee;
+    }
+
+    .debug-section pre {
       margin: 0;
       padding: 12px 16px;
-      background: #f5f5f5;
       font-size: 11px;
       overflow-x: auto;
       color: #666;
-      border-top: 1px solid #eee;
-      font-family: 'Monaco', 'Courier New', monospace;
-      line-height: 1.5;
+      font-family: 'SF Mono', Monaco, 'Cascade Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        padding: 24px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      .btn-back {
+        grid-column: 1;
+      }
+
+      .btn-add {
+        grid-column: 1;
+      }
+
+      .add-full {
+        grid-column: 1;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div class="container">
+    <div class="header">
+      <div class="icon-container">
+        <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+          <circle cx="30" cy="30" r="28" stroke="#667eea" stroke-width="2.5"/>
+          <path d="M30 18V42M18 30H42" stroke="#667eea" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h1>Access Restricted</h1>
+      <p class="subtitle">This content is blocked by FocusedTube</p>
+    </div>
+
+    <div class="card">
+      <div class="reason-section">
+        <div class="reason-label">Reason</div>
+        <div class="reason-text" id="reasonText">Loading...</div>
+      </div>
+
+      <div class="url-section">
+        <div class="url-label">Requested URL</div>
+        <div class="url-text" id="urlText">Loading...</div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-back" id="backBtn">
+          <span>←</span> Go back
+        </button>
+        <button class="btn btn-add" id="addBtn" style="display: none;">
+          <span>+</span> <span id="addBtnText">Add</span>
+        </button>
+      </div>
+
+      <div class="success-banner" id="successBanner">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M17 6L8 15L3 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span id="successText">Added to whitelist!</span>
+      </div>
+
+      <div class="info-box">
+        <strong>💡 Tip:</strong> You can manage your whitelist settings and toggle blocking from the FocusedTube extension popup.
+      </div>
+    </div>
+
+    <div class="debug-section card">
+      <details>
+        <summary>🔍 Debug Information</summary>
+        <pre id="debugInfo">{}</pre>
+      </details>
+    </div>
+  </div>
 
   <script>
-    console.log('[FocusedTube Block Page] Loading');
+    console.log('[FocusedTube Block Page] Initializing');
 
     function getQueryParam(name) {
       const params = new URLSearchParams(window.location.search);
@@ -229,14 +384,10 @@
     function extractVideoId(urlString) {
       try {
         const url = new URL(urlString, 'https://youtube.com');
-        if (url.searchParams.has('v')) {
-          return url.searchParams.get('v');
-        }
-        if (url.hostname === 'youtu.be') {
-          return url.pathname.slice(1).split('?')[0];
-        }
+        if (url.searchParams.has('v')) return url.searchParams.get('v');
+        if (url.hostname === 'youtu.be') return url.pathname.slice(1).split('?')[0];
       } catch (e) {
-        console.error('[FocusedTube Block Page] Error extracting video ID:', e);
+        console.error('[FocusedTube] Error extracting video ID:', e);
       }
       return null;
     }
@@ -244,22 +395,16 @@
     function extractPlaylistId(urlString) {
       try {
         const url = new URL(urlString, 'https://youtube.com');
-        if (url.searchParams.has('list')) {
-          return url.searchParams.get('list');
-        }
+        if (url.searchParams.has('list')) return url.searchParams.get('list');
       } catch (e) {
-        console.error('[FocusedTube Block Page] Error extracting playlist ID:', e);
+        console.error('[FocusedTube] Error extracting playlist ID:', e);
       }
       return null;
     }
 
     const fromUrl = getQueryParam('from');
     const reason = getQueryParam('reason');
-
-    console.log('[FocusedTube Block Page] URL params:', { fromUrl, reason });
-
     const decodedUrl = fromUrl ? decodeURIComponent(fromUrl) : null;
-    console.log('[FocusedTube Block Page] Decoded URL:', decodedUrl);
 
     let videoId = null;
     let playlistId = null;
@@ -267,130 +412,69 @@
     if (decodedUrl) {
       videoId = extractVideoId(decodedUrl);
       playlistId = extractPlaylistId(decodedUrl);
-      console.log('[FocusedTube Block Page] Extracted IDs:', { videoId, playlistId });
     }
 
-    const reasonText = reason ? decodeURIComponent(reason) : 'URL not whitelisted';
+    // Update UI
+    document.getElementById('reasonText').textContent = reason ? decodeURIComponent(reason) : 'Not whitelisted';
+    document.getElementById('urlText').textContent = decodedUrl || 'Unknown';
 
-    let addButtonHTML = '';
-    if (videoId) {
-      addButtonHTML = `
-        <button class="btn btn-primary" id="addVideoBtn" title="Add this video to your whitelist">
-          ✓ Add video to whitelist
-        </button>
-      `;
-    } else if (playlistId) {
-      addButtonHTML = `
-        <button class="btn btn-primary" id="addPlaylistBtn" title="Add this playlist to your whitelist">
-          ✓ Add playlist to whitelist
-        </button>
-      `;
-    }
+    document.getElementById('debugInfo').textContent = JSON.stringify({
+      url: decodedUrl,
+      reason: reason ? decodeURIComponent(reason) : null,
+      videoId,
+      playlistId,
+      timestamp: new Date().toISOString(),
+    }, null, 2);
 
-    const root = document.getElementById('root');
-    root.innerHTML = `
-      <div class="block-page">
-        <div class="block-card">
-          <div class="block-icon">
-            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-              <circle cx="40" cy="40" r="38" stroke="#667eea" stroke-width="3" />
-              <path d="M40 24V56M24 40H56" stroke="#667eea" stroke-width="3" stroke-linecap="round" />
-            </svg>
-          </div>
-
-          <h1 class="block-title">Access Blocked</h1>
-
-          <div class="block-reason">
-            <p class="reason-label">Reason</p>
-            <p class="reason-text">${reasonText}</p>
-          </div>
-
-          <div class="block-url">
-            <p class="url-label">Requested URL</p>
-            <p class="url-text" title="${decodedUrl || ''}">${
-              decodedUrl ? decodedUrl.substring(0, 60) + (decodedUrl.length > 60 ? '...' : '') : 'Unknown'
-            }</p>
-          </div>
-
-          <div class="block-actions">
-            <button class="btn btn-secondary" id="backBtn" title="Go back to the previous page">
-              ← Go back
-            </button>
-            ${addButtonHTML}
-            <div id="successMessage" class="success-message" style="display: none;">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M17 6L8 15L3 10" stroke="#4caf50" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <span>Added to whitelist!</span>
-            </div>
-          </div>
-
-          <div class="block-info">
-            <p>
-              <strong>💡 Tip:</strong> You can manage your whitelist in the FocusedTube extension popup.
-            </p>
-          </div>
-        </div>
-
-        <div class="block-debug">
-          <details>
-            <summary>Debug Info</summary>
-            <pre>${JSON.stringify({
-              fromUrl: decodedUrl,
-              reason: reasonText,
-              videoId,
-              playlistId,
-            }, null, 2)}</pre>
-          </details>
-        </div>
-      </div>
-    `;
-
-    // Event listeners
+    // Back button
     document.getElementById('backBtn').addEventListener('click', () => {
       console.log('[FocusedTube Block Page] Going back');
       window.history.back();
     });
 
-    if (videoId) {
-      document.getElementById('addVideoBtn').addEventListener('click', async () => {
-        console.log('[FocusedTube Block Page] Adding video to whitelist:', videoId);
+    // Add to whitelist button
+    if (videoId || playlistId) {
+      const addBtn = document.getElementById('addBtn');
+      const addBtnText = document.getElementById('addBtnText');
+
+      if (videoId) {
+        addBtnText.textContent = 'Add Video';
+      } else if (playlistId) {
+        addBtnText.textContent = 'Add Playlist';
+      }
+
+      addBtn.style.display = 'flex';
+      addBtn.addEventListener('click', async () => {
+        console.log('[FocusedTube Block Page] Adding to whitelist:', { videoId, playlistId });
+
         try {
+          addBtn.disabled = true;
+
+          const messageType = videoId ? 'ADD_VIDEO' : 'ADD_PLAYLIST';
+          const messageData = videoId ? { videoId } : { playlistId };
+
           await chrome.runtime.sendMessage({
-            type: 'ADD_VIDEO',
-            videoId: videoId,
+            type: messageType,
+            ...messageData,
           });
-          console.log('[FocusedTube Block Page] Video added successfully');
-          const btn = document.getElementById('addVideoBtn');
-          const msg = document.getElementById('successMessage');
-          if (btn) btn.style.display = 'none';
-          if (msg) msg.style.display = 'flex';
+
+          console.log('[FocusedTube Block Page] Successfully added to whitelist');
+
+          // Show success message
+          const successBanner = document.getElementById('successBanner');
+          const successText = document.getElementById('successText');
+          successText.textContent = videoId ? 'Video added to whitelist!' : 'Playlist added to whitelist!';
+          successBanner.classList.add('show');
+
+          addBtn.style.display = 'none';
         } catch (error) {
-          console.error('[FocusedTube Block Page] Error adding video:', error);
+          console.error('[FocusedTube Block Page] Error:', error);
+          addBtn.disabled = false;
         }
       });
     }
 
-    if (playlistId) {
-      document.getElementById('addPlaylistBtn').addEventListener('click', async () => {
-        console.log('[FocusedTube Block Page] Adding playlist to whitelist:', playlistId);
-        try {
-          await chrome.runtime.sendMessage({
-            type: 'ADD_PLAYLIST',
-            playlistId: playlistId,
-          });
-          console.log('[FocusedTube Block Page] Playlist added successfully');
-          const btn = document.getElementById('addPlaylistBtn');
-          const msg = document.getElementById('successMessage');
-          if (btn) btn.style.display = 'none';
-          if (msg) msg.style.display = 'flex';
-        } catch (error) {
-          console.error('[FocusedTube Block Page] Error adding playlist:', error);
-        }
-      });
-    }
-
-    console.log('[FocusedTube Block Page] Initialized');
+    console.log('[FocusedTube Block Page] Ready');
   </script>
 </body>
 </html>

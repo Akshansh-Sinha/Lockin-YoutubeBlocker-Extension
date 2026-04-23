@@ -20,31 +20,33 @@ export async function setStorage(schema: StorageSchema): Promise<void> {
   await chrome.storage.local.set(schema);
 }
 
-export async function addVideoToWhitelist(videoId: string): Promise<void> {
+export async function addVideoToWhitelist(videoId: string, name?: string): Promise<void> {
   const schema = await getStorage();
-  if (!schema.whitelist.videos.includes(videoId)) {
-    schema.whitelist.videos.push(videoId);
+  const exists = schema.whitelist.videos.some(item => item.id === videoId);
+  if (!exists) {
+    schema.whitelist.videos.push({ id: videoId, name });
     await setStorage(schema);
   }
 }
 
 export async function removeVideoFromWhitelist(videoId: string): Promise<void> {
   const schema = await getStorage();
-  schema.whitelist.videos = schema.whitelist.videos.filter(id => id !== videoId);
+  schema.whitelist.videos = schema.whitelist.videos.filter(item => item.id !== videoId);
   await setStorage(schema);
 }
 
-export async function addPlaylistToWhitelist(playlistId: string): Promise<void> {
+export async function addPlaylistToWhitelist(playlistId: string, name?: string): Promise<void> {
   const schema = await getStorage();
-  if (!schema.whitelist.playlists.includes(playlistId)) {
-    schema.whitelist.playlists.push(playlistId);
+  const exists = schema.whitelist.playlists.some(item => item.id === playlistId);
+  if (!exists) {
+    schema.whitelist.playlists.push({ id: playlistId, name });
     await setStorage(schema);
   }
 }
 
 export async function removePlaylistFromWhitelist(playlistId: string): Promise<void> {
   const schema = await getStorage();
-  schema.whitelist.playlists = schema.whitelist.playlists.filter(id => id !== playlistId);
+  schema.whitelist.playlists = schema.whitelist.playlists.filter(item => item.id !== playlistId);
   await setStorage(schema);
 }
 
