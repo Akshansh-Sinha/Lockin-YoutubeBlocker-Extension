@@ -21,6 +21,12 @@ export default defineManifest({
   action: {
     default_popup: 'src/ui/popup/index.html',
     default_title: 'Lockin',
+    default_icon: 'logo.png'
+  },
+  icons: {
+    "16": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
   },
   content_scripts: [
     {
