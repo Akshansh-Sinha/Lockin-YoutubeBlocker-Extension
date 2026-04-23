@@ -110,4 +110,37 @@ describe('decision engine', () => {
     const verdict = await getVerdict(context);
     expect(verdict.action).toBe('allow');
   });
+
+  it('should allow video watched from whitelisted playlist', async () => {
+    const context: Context = {
+      url: new URL('https://youtube.com/watch?v=some_video&list=whitelisted_playlist'),
+      now: Date.now(),
+      override: defaults.override,
+      settings: defaults.settings,
+      whitelist: {
+        videos: [],
+        playlists: ['whitelisted_playlist'],
+      },
+    };
+
+    const verdict = await getVerdict(context);
+    expect(verdict.action).toBe('allow');
+    expect(verdict.reason).toBe('Playlist whitelisted');
+  });
+
+  it('should block video from non-whitelisted playlist', async () => {
+    const context: Context = {
+      url: new URL('https://youtube.com/watch?v=some_video&list=other_playlist'),
+      now: Date.now(),
+      override: defaults.override,
+      settings: defaults.settings,
+      whitelist: {
+        videos: [],
+        playlists: [],
+      },
+    };
+
+    const verdict = await getVerdict(context);
+    expect(verdict.action).toBe('block');
+  });
 });
