@@ -1,4 +1,5 @@
 import { handleNavigation, makeDecision } from '@/interception/index';
+import { addVideoToWhitelist, addPlaylistToWhitelist } from '@/storage/index';
 
 // Listen for hard navigations (onBeforeNavigate)
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
@@ -49,6 +50,32 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ action: 'block', reason: 'Decision error' });
       });
     return true; // Indicate we'll send a response asynchronously
+  }
+
+  if (message.type === 'ADD_VIDEO') {
+    addVideoToWhitelist(message.videoId)
+      .then(() => {
+        console.log('[FocusedTube] Video added to whitelist:', message.videoId);
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error('[FocusedTube] Error adding video:', error);
+        sendResponse({ success: false, error: String(error) });
+      });
+    return true;
+  }
+
+  if (message.type === 'ADD_PLAYLIST') {
+    addPlaylistToWhitelist(message.playlistId)
+      .then(() => {
+        console.log('[FocusedTube] Playlist added to whitelist:', message.playlistId);
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error('[FocusedTube] Error adding playlist:', error);
+        sendResponse({ success: false, error: String(error) });
+      });
+    return true;
   }
 });
 
