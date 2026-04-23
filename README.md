@@ -19,6 +19,10 @@ YouTube is packed with extremely valuable educational content, but it's delibera
 - **Password Locking**: Optionally safeguard your whitelist settings by requiring a passcode to change overrides.
 - **Temporary Bypasses**: Give yourself a quick 2-min, 5-min, or 10-min bypass when you legitimately need to break focus for a bit.
 
+## 📸 Screenshot
+
+![Lockin Block Screen](docs/screenshot.png)
+
 ---
 
 ## 🛠️ Tech Stack & Architecture
@@ -79,13 +83,13 @@ You can whitelist any URL directly from YouTube, whether it is a singular educat
 - In the **Add link** section, assign a descriptive name (optional) and paste the URL.
 - Once added, that video is officially approved. You can explore your organized whitelist directly beneath the **Videos** and **Playlists** headers. By clicking on them inside the extension, Lockin will safely bypass the block screen and drop you right into the video.
 
-### 3. Temporary Unlocks
+### 2. Temporary Unlocks
 If you genuinely need to explore the platform to research something or take a brief break, use a **Temporary Unlock**.
 - Inside the extension UI, locate the **Temporary unlock** section.
 - Click either **2 min**, **5 min**, or **10 min**. 
 - The entire YouTube website will be functionally unlocked for that strict window. Once the countdown expires, Lockin aggressively rears its head and blocks the site once more.
 
-### 4. Overriding & Disabling
+### 3. Overriding & Disabling
 If you are done studying for the day and want to turn Lockin off completely:
 - Hit the red **Disable** button inside the extension popup.
 - You will be prompted to type the exact phrase: **"I have completed my studies"**
