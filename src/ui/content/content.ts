@@ -26,6 +26,7 @@ const TARGETS = [
   'ytd-reel-item-renderer',
   'ytd-rich-section-renderer', // Shorts shelves / Trending shelves
   'ytd-reel-shelf-renderer',
+  'ytd-shelf-renderer', // Search result shelves
   'ytd-shorts', // The shorts player itself
   
   // Navigation
@@ -42,6 +43,16 @@ const TARGETS = [
 const TARGETS_SELECTOR = TARGETS.join(', ');
 
 /**
+ * Forceful check to redirect the user if they directly navigate to a Short in Filtered mode.
+ * This prevents the video from playing audio while being visually hidden.
+ */
+function enforceFilteredModeNavigation() {
+  if (window.location.pathname.startsWith('/shorts')) {
+    window.location.replace('/');
+  }
+}
+
+/**
  * Attempt to extract URL context from a DOM element (video tile).
  * We look for the main watch/playlist anchor, and optionally the channel anchor.
  */
@@ -52,10 +63,16 @@ function buildContext(el: Element): Context | null {
   }
 
   // ── 1. Main content link (video / shorts / playlist) ──────────────────────
-  const contentAnchor =
-    el.querySelector<HTMLAnchorElement>('a[href*="/shorts/"]') ??
-    el.querySelector<HTMLAnchorElement>('a[href*="/watch"]') ??
-    el.querySelector<HTMLAnchorElement>('a[href*="/playlist"]');
+  let contentAnchor: HTMLAnchorElement | null = null;
+  const anchors = Array.from(el.querySelectorAll<HTMLAnchorElement>('a'));
+  
+  for (const a of anchors) {
+    const href = a.getAttribute('href') || '';
+    if (href === '/shorts' || href.startsWith('/shorts/') || href.includes('/watch') || href.includes('/playlist')) {
+      contentAnchor = a;
+      break;
+    }
+  }
 
   if (!contentAnchor) return null;
 
@@ -94,13 +111,41 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   // Already hidden — nothing to do
   if ((el as HTMLElement).style.display === 'none') return;
 
-  // Unconditionally hide ads
-  const isAd = ['ytd-ad-slot-renderer', 'ytd-in-feed-ad-layout-renderer', 'ytd-banner-promo-renderer', 'ytd-promoted-sparkles-web-renderer']
-    .includes(el.tagName.toLowerCase()) || el.querySelector('.ytd-ad-slot-renderer, [class*="ad-slot"]');
+  const tagName = el.tagName.toLowerCase();
+
+  // Unconditionally hide ads and Shorts-exclusive components
+  const isAdOrShorts = ['ytd-ad-slot-renderer', 'ytd-in-feed-ad-layout-renderer', 'ytd-banner-promo-renderer', 'ytd-promoted-sparkles-web-renderer', 'ytd-reel-shelf-renderer', 'ytd-reel-item-renderer']
+    .includes(tagName) || el.querySelector('.ytd-ad-slot-renderer, [class*="ad-slot"]');
   
-  if (isAd) {
+  if (isAdOrShorts) {
     (el as HTMLElement).style.display = 'none';
     return;
+  }
+
+  // Unconditionally hide sidebar Shorts links
+  if (tagName === 'ytd-guide-entry-renderer' || tagName === 'ytd-mini-guide-entry-renderer') {
+    const a = el.querySelector('a');
+    if (a && (a.getAttribute('title') === 'Shorts' || a.getAttribute('href') === '/shorts' || a.getAttribute('href') === '/shorts/')) {
+      (el as HTMLElement).style.display = 'none';
+      return;
+    }
+  }
+
+  // Unconditionally hide Home page Shorts shelves (ytd-rich-section-renderer)
+  if (tagName === 'ytd-rich-section-renderer') {
+    if (el.hasAttribute('is-shorts') || el.querySelector('[is-shorts]') || el.querySelector('yt-icon.ytd-logo[icon="yt-shorts"]')) {
+      (el as HTMLElement).style.display = 'none';
+      return;
+    }
+  }
+
+  // Unconditionally hide Search page Shorts shelves (ytd-shelf-renderer)
+  if (tagName === 'ytd-shelf-renderer') {
+    const title = el.querySelector('#title')?.textContent?.trim();
+    if (title === 'Shorts' || el.querySelector('yt-icon[icon="yt-shorts"], .ytd-shorts-logo')) {
+      (el as HTMLElement).style.display = 'none';
+      return;
+    }
   }
 
   const ctx = buildContext(el);
@@ -109,7 +154,7 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   if (!isAllowed(ctx, whitelist, 'filtered')) {
     (el as HTMLElement).style.display = 'none';
 
-    // If we just hid a Short inside a shelf, hide the entire shelf container to prevent empty "Shorts" sections.
+    // Fallback: If we just hid a Short inside a shelf, hide the entire shelf container to prevent empty "Shorts" sections.
     if (ctx.isShort) {
       const section = el.closest('ytd-rich-section-renderer, ytd-reel-shelf-renderer');
       if (section) {
@@ -159,11 +204,16 @@ function attachObserver(whitelist: Whitelist) {
 }
 
 function activateDOMFilter(whitelist: Whitelist) {
+  // Check the initial URL on page load
+  enforceFilteredModeNavigation();
+
   // First pass on existing DOM
   filterAllTiles(whitelist);
 
   // Hook into YouTube's SPA navigation events
   window.addEventListener('yt-navigate-finish', () => {
+    enforceFilteredModeNavigation();
+
     // Re-fetch storage just in case it changed during the session
     getStorage().then(({ whitelist: newWhitelist }) => {
       filterAllTiles(newWhitelist);
