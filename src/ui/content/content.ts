@@ -28,22 +28,22 @@ function setupHistoryListener() {
 
       // Only intercept youtube.com URLs
       if (fullUrl.includes('youtube.com')) {
-        // Check decision asynchronously, but don't wait for it in this sync function
+        // Check decision first, THEN decide whether to call pushState
         checkAndDecideUrl(fullUrl).then((decision) => {
-          if (decision.action === 'block') {
-            // Redirect to block page
+          if (decision.action === 'allow') {
+            // URL is allowed, safe to add to history
+            originalPushState.call(this, state, unused, url);
+          } else {
+            // URL is blocked, DON'T add to history, just redirect
             const encodedUrl = encodeURIComponent(fullUrl);
             const encodedReason = encodeURIComponent(decision.reason);
             window.location.href = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
           }
         });
 
-        // Always call the original pushState to update the history
-        // This ensures the history stack is maintained
-        const result = originalPushState.call(this, state, unused, url);
-
-        // If we determined it should be blocked, the above .then() will redirect
-        return result;
+        // Return immediately without calling originalPushState yet
+        // It will be called asynchronously if allowed
+        return undefined;
       }
     }
 
@@ -57,19 +57,20 @@ function setupHistoryListener() {
 
       // Only intercept youtube.com URLs
       if (fullUrl.includes('youtube.com')) {
-        // Check decision asynchronously
+        // Check decision first
         checkAndDecideUrl(fullUrl).then((decision) => {
-          if (decision.action === 'block') {
-            // Redirect to block page
+          if (decision.action === 'allow') {
+            // URL is allowed, safe to replace in history
+            originalReplaceState.call(this, state, unused, url);
+          } else {
+            // URL is blocked, redirect without modifying history
             const encodedUrl = encodeURIComponent(fullUrl);
             const encodedReason = encodeURIComponent(decision.reason);
             window.location.href = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
           }
         });
 
-        // Always call the original replaceState
-        const result = originalReplaceState.call(this, state, unused, url);
-        return result;
+        return undefined;
       }
     }
 
@@ -77,10 +78,13 @@ function setupHistoryListener() {
   };
 
   // Also listen for popstate (back/forward button)
+  // This fires after history has changed, so we need to check the new URL
   window.addEventListener('popstate', () => {
     const url = new URL(window.location.href);
     checkAndDecideUrl(url.toString()).then((decision) => {
       if (decision.action === 'block') {
+        // URL was going to be blocked, but user navigated back to it
+        // Redirect to block page
         const encodedUrl = encodeURIComponent(url.toString());
         const encodedReason = encodeURIComponent(decision.reason);
         window.location.href = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
