@@ -8,9 +8,13 @@ import {
   setPlaylistWhitelistName,
   setOverrideExpiry,
   setBlockingDisabled,
+  addChannelToWhitelist,
+  removeChannelFromWhitelist,
+  setMode,
 } from '@/storage/index';
 import { extractVideoIdFromUrl, extractPlaylistIdFromUrl } from '@/interception/classifier';
-import type { WhitelistItem } from '@/storage/types';
+import { extractContext } from '@/core/engine';
+import type { WhitelistItem, Mode } from '@/storage/types';
 import { buildYouTubeUrl, fetchYouTubeTitle } from '@/youtube/metadata';
 
 let isHydratingNames = false;
@@ -42,6 +46,25 @@ function renderWhitelistItem(item: WhitelistItem, type: 'video' | 'playlist'): s
         </a>
       </div>
       <button class="btn-remove" data-type="${type}" data-id="${escapeHtml(item.id)}" title="Remove from whitelist" aria-label="Remove ${type}">Remove</button>
+    </div>
+  `;
+}
+
+function renderChannelItem(item: WhitelistItem): string {
+  const displayName = item.name?.trim() || item.id;
+  const href = item.id.startsWith('@')
+    ? `https://www.youtube.com/${item.id}`
+    : `https://www.youtube.com/channel/${item.id}`;
+
+  return `
+    <div class="list-item">
+      <div class="item-content">
+        <a href="${href}" target="_blank" rel="noopener" class="item-link" title="Open on YouTube">
+          <span class="item-title">${escapeHtml(displayName)}</span>
+          <span class="item-url">${escapeHtml(item.id)}</span>
+        </a>
+      </div>
+      <button class="btn-remove" data-type="channel" data-id="${escapeHtml(item.id)}" title="Remove from whitelist" aria-label="Remove channel">Remove</button>
     </div>
   `;
 }
@@ -88,6 +111,53 @@ async function showMainUI() {
     }
   });
 
+  // ── Channel input ──────────────────────────────────────────────────────────
+  const channelInput = document.getElementById('channelInput') as HTMLInputElement;
+  const addChannelBtn = document.getElementById('addChannelBtn') as HTMLButtonElement;
+
+  addChannelBtn.addEventListener('click', async () => {
+    const raw = channelInput.value.trim();
+    const channelError = document.getElementById('channelError') as HTMLElement;
+    channelError.style.display = 'none';
+
+    if (!raw) return;
+
+    let channelId: string | null = null;
+
+    if (raw.startsWith('@')) {
+      channelId = raw;
+    } else if (raw.startsWith('UC') && !raw.includes('/')) {
+      channelId = raw;
+    } else {
+      const ctx = extractContext(raw.includes('://') ? raw : `https://www.youtube.com/${raw}`);
+      channelId = ctx.channelId;
+    }
+
+    if (!channelId) {
+      channelError.style.display = 'block';
+      return;
+    }
+
+    await addChannelToWhitelist({ id: channelId, name: channelId });
+    channelInput.value = '';
+    updateWhitelists();
+  });
+
+  // ── Mode toggle ────────────────────────────────────────────────────────────
+  const modeStrict = document.getElementById('modeStrict') as HTMLButtonElement;
+  const modeFiltered = document.getElementById('modeFiltered') as HTMLButtonElement;
+
+  [modeStrict, modeFiltered].forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const newMode = btn.dataset.mode as 'strict' | 'filtered';
+      await setMode(newMode);
+      updateModeToggle(newMode);
+    });
+  });
+
+  updateModeToggle((await getStorage()).mode);
+
+  // ── Preset unlock buttons ──────────────────────────────────────────────────
   const presetButtons = document.querySelectorAll('.btn-preset') as NodeListOf<HTMLButtonElement>;
   presetButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -173,8 +243,10 @@ async function updateWhitelists() {
 
   const videoList = document.getElementById('videoList') as HTMLDivElement;
   const playlistList = document.getElementById('playlistList') as HTMLDivElement;
+  const channelList = document.getElementById('channelList') as HTMLDivElement;
   const videoCount = document.getElementById('videoCount') as HTMLElement;
   const playlistCount = document.getElementById('playlistCount') as HTMLElement;
+  const channelCount = document.getElementById('channelCount') as HTMLElement;
 
   if (storage.whitelist.videos.length === 0) {
     videoList.innerHTML = '<p class="empty-state">No videos whitelisted yet</p>';
@@ -192,16 +264,26 @@ async function updateWhitelists() {
     playlistCount.textContent = storage.whitelist.playlists.length.toString();
   }
 
+  if (storage.whitelist.channels.length === 0) {
+    channelList.innerHTML = '<p class="empty-state">No channels whitelisted yet</p>';
+    channelCount.textContent = '0';
+  } else {
+    channelList.innerHTML = storage.whitelist.channels.map(renderChannelItem).join('');
+    channelCount.textContent = storage.whitelist.channels.length.toString();
+  }
+
   document.querySelectorAll('.btn-remove').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       const target = e.target as HTMLButtonElement;
-      const type = target.dataset.type || '';
-      const id = target.dataset.id || '';
+      const type = target.dataset.type ?? '';
+      const id = target.dataset.id ?? '';
 
       if (type === 'video') {
         await removeVideoFromWhitelist(id);
       } else if (type === 'playlist') {
         await removePlaylistFromWhitelist(id);
+      } else if (type === 'channel') {
+        await removeChannelFromWhitelist(id);
       }
 
       updateWhitelists();
@@ -274,6 +356,28 @@ async function updateUnlockStatus() {
     disableBtn.style.display = 'block';
     enableBtn.style.display = 'none';
   }
+}
+
+function updateModeToggle(mode: Mode): void {
+  const modeStrict = document.getElementById('modeStrict') as HTMLButtonElement;
+  const modeFiltered = document.getElementById('modeFiltered') as HTMLButtonElement;
+  const modeHint = document.getElementById('modeHint') as HTMLElement;
+  const shortsNotice = document.getElementById('shortsNotice') as HTMLElement;
+  const channelsSection = document.getElementById('channelsSection') as HTMLElement;
+  const channelInputGroup = document.getElementById('channelInputGroup') as HTMLElement;
+
+  const isFiltered = mode === 'filtered';
+
+  modeStrict.classList.toggle('active', !isFiltered);
+  modeFiltered.classList.toggle('active', isFiltered);
+
+  modeHint.textContent = isFiltered
+    ? 'YouTube loads normally — non-whitelisted tiles are hidden in place.'
+    : 'All non-whitelisted URLs redirect to the block page.';
+
+  shortsNotice.style.display = isFiltered ? 'block' : 'none';
+  channelsSection.style.display = isFiltered ? 'block' : 'none';
+  channelInputGroup.style.display = isFiltered ? 'flex' : 'none';
 }
 
 initPopup();

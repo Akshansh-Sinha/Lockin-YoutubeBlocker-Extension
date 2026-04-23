@@ -18,6 +18,17 @@
 
 
     <div id="mainUI" style="display: none;">
+
+      <div class="section mode-section">
+        <h3>Blocking mode</h3>
+        <div class="mode-toggle" id="modeToggle">
+          <button class="btn-mode active" id="modeStrict" data-mode="strict">Strict</button>
+          <button class="btn-mode" id="modeFiltered" data-mode="filtered">Filtered</button>
+        </div>
+        <p class="mode-hint" id="modeHint">All non-whitelisted URLs redirect to the block page.</p>
+        <p class="shorts-notice" id="shortsNotice" style="display:none;">Shorts are always hidden in filtered mode.</p>
+      </div>
+
       <div class="section">
         <div class="section-header">
           <h2>Videos</h2>
@@ -38,6 +49,18 @@
         </div>
       </div>
 
+      <div id="channelsSection">
+        <div class="section">
+          <div class="section-header">
+            <h2>Channels</h2>
+            <span class="count" id="channelCount">0</span>
+          </div>
+          <div id="channelList" class="list">
+            <p class="empty-state">No channels whitelisted yet</p>
+          </div>
+        </div>
+      </div>
+
       <div class="section">
         <h3>Add link</h3>
         <input id="nameInput" type="text" placeholder="Name (optional)" class="input-field" />
@@ -45,6 +68,11 @@
           <input id="urlInput" type="text" placeholder="Paste YouTube URL" class="input-field" />
           <button id="addUrlBtn" class="btn btn-small">Add</button>
         </div>
+        <div class="input-group" style="margin-top:8px;" id="channelInputGroup">
+          <input id="channelInput" type="text" placeholder="@handle or UC... or channel URL" class="input-field" />
+          <button id="addChannelBtn" class="btn btn-small">Add Channel</button>
+        </div>
+        <p class="channel-error" id="channelError" style="display:none;">Enter a valid channel handle or URL</p>
       </div>
 
       <div class="section unlock-section">

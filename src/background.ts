@@ -1,9 +1,9 @@
 import { handleNavigation, makeDecision } from '@/interception/index';
-import { addVideoToWhitelist, addPlaylistToWhitelist } from '@/storage/index';
+import { addVideoToWhitelist, addPlaylistToWhitelist, getStorage } from '@/storage/index';
 import { fetchYouTubeTitle } from '@/youtube/metadata';
 
 // Listen for hard navigations (onBeforeNavigate)
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) {
     // Only handle top-level frame
     return;
@@ -15,12 +15,17 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (!url.hostname.includes('youtube.com')) {
     return;
   }
+
+  // In filtered mode, navigation is never intercepted — the content script
+  // handles DOM-level filtering instead.
+  const { mode } = await getStorage();
+  if (mode === 'filtered') return;
 
   handleNavigation(url);
 });
 
 // Listen for SPA navigations (onHistoryStateUpdated)
-chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+chrome.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
   if (details.frameId !== 0) {
     // Only handle top-level frame
     return;
@@ -32,6 +37,10 @@ chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   if (!url.hostname.includes('youtube.com')) {
     return;
   }
+
+  // In filtered mode, skip interception entirely.
+  const { mode } = await getStorage();
+  if (mode === 'filtered') return;
 
   handleNavigation(url);
 });

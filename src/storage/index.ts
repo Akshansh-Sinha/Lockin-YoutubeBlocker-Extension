@@ -1,10 +1,40 @@
-import type { StorageSchema, Whitelist, WhitelistItem } from './types';
+import type { StorageSchema, Whitelist, WhitelistItem, Mode } from './types';
 import { getDefaults } from './migrations';
+
+// ─── Storage backend — sync with local fallback ────────────────────────────────
+
+/**
+ * Write to chrome.storage.sync. Falls back to chrome.storage.local if the
+ * sync quota is exceeded (QUOTA_BYTES_PER_ITEM or total QUOTA_BYTES).
+ */
+async function storageSet(data: object): Promise<void> {
+  try {
+    await chrome.storage.sync.set(data);
+  } catch {
+    // Quota exceeded — persist locally so data is never lost.
+    await chrome.storage.local.set(data);
+  }
+}
+
+/**
+ * Read from chrome.storage.sync. Falls back to chrome.storage.local on error
+ * (e.g. if data was previously written locally due to a quota fallback).
+ */
+async function storageGet(keys: null): Promise<Record<string, unknown>> {
+  try {
+    return await chrome.storage.sync.get(keys) as Record<string, unknown>;
+  } catch {
+    return await chrome.storage.local.get(keys) as Record<string, unknown>;
+  }
+}
+
+// ─── Whitelist normalization ───────────────────────────────────────────────────
 
 type LegacyWhitelistItem = string | WhitelistItem;
 type LegacyWhitelist = {
   videos?: LegacyWhitelistItem[];
   playlists?: LegacyWhitelistItem[];
+  channels?: LegacyWhitelistItem[];
 };
 
 function normalizeWhitelistItem(item: LegacyWhitelistItem): WhitelistItem | null {
@@ -25,20 +55,25 @@ function normalizeWhitelistItem(item: LegacyWhitelistItem): WhitelistItem | null
 function normalizeWhitelist(whitelist: LegacyWhitelist | undefined, fallback: Whitelist): Whitelist {
   const videos = whitelist?.videos ?? fallback.videos;
   const playlists = whitelist?.playlists ?? fallback.playlists;
+  const channels = whitelist?.channels ?? fallback.channels;
 
   return {
     videos: videos.map(normalizeWhitelistItem).filter((item): item is WhitelistItem => item !== null),
     playlists: playlists.map(normalizeWhitelistItem).filter((item): item is WhitelistItem => item !== null),
+    channels: channels.map(normalizeWhitelistItem).filter((item): item is WhitelistItem => item !== null),
   };
 }
 
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export async function getStorage(): Promise<StorageSchema> {
-  const data = await chrome.storage.local.get(null);
+  const data = await storageGet(null);
   const stored = data as Partial<Omit<StorageSchema, 'whitelist'>> & { whitelist?: LegacyWhitelist };
 
   const schema = getDefaults();
   return {
     schemaVersion: stored.schemaVersion ?? schema.schemaVersion,
+    mode: stored.mode ?? schema.mode,
     whitelist: normalizeWhitelist(stored.whitelist, schema.whitelist),
     settings: stored.settings ?? schema.settings,
     security: stored.security ?? schema.security,
@@ -51,7 +86,7 @@ export async function getStorage(): Promise<StorageSchema> {
 }
 
 export async function setStorage(schema: StorageSchema): Promise<void> {
-  await chrome.storage.local.set(schema);
+  await storageSet(schema);
 }
 
 export async function addVideoToWhitelist(videoId: string, name?: string): Promise<void> {
@@ -152,5 +187,32 @@ export async function setRateLimit(attemptCount: number, lockedUntil: number | n
   const schema = await getStorage();
   schema.rateLimit.attemptCount = attemptCount;
   schema.rateLimit.lockedUntil = lockedUntil;
+  await setStorage(schema);
+}
+
+export async function setMode(mode: Mode): Promise<void> {
+  const schema = await getStorage();
+  schema.mode = mode;
+  await setStorage(schema);
+}
+
+export async function addChannelToWhitelist(item: WhitelistItem): Promise<void> {
+  const schema = await getStorage();
+  const existing = schema.whitelist.channels.find((c) => c.id === item.id);
+
+  if (existing) {
+    if (item.name && !existing.name) {
+      existing.name = item.name;
+      await setStorage(schema);
+    }
+  } else {
+    schema.whitelist.channels.push({ id: item.id, name: item.name });
+    await setStorage(schema);
+  }
+}
+
+export async function removeChannelFromWhitelist(channelId: string): Promise<void> {
+  const schema = await getStorage();
+  schema.whitelist.channels = schema.whitelist.channels.filter((item) => item.id !== channelId);
   await setStorage(schema);
 }

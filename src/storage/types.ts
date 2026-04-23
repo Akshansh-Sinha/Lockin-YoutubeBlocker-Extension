@@ -6,7 +6,12 @@ export interface WhitelistItem {
 export interface Whitelist {
   videos: WhitelistItem[];
   playlists: WhitelistItem[];
+  /** Mix of "UC…" UCIDs and "@handle" strings — both stored as-is. */
+  channels: WhitelistItem[];
 }
+
+/** The active blocking mode. */
+export type Mode = 'strict' | 'filtered';
 
 export interface Settings {
   stripRelated: boolean;
@@ -34,6 +39,11 @@ export interface RateLimitData {
 
 export interface StorageSchema {
   schemaVersion: number;
+  /**
+   * 'strict'   — navigation is intercepted; non-whitelisted URLs redirect to block page.
+   * 'filtered' — navigation is never intercepted; content script hides non-whitelisted tiles.
+   */
+  mode: Mode;
   whitelist: Whitelist;
   settings: Settings;
   security: SecurityData;

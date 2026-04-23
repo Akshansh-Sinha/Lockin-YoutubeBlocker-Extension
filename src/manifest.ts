@@ -9,6 +9,7 @@ export default defineManifest({
     'storage',
     'webNavigation',
     'scripting',
+    'identity',
   ],
   host_permissions: [
     '*://youtube.com/*',
@@ -29,10 +30,10 @@ export default defineManifest({
   content_scripts: [
     {
       matches: [
-        '*://youtube.com/watch*',
-        '*://www.youtube.com/watch*',
-        '*://youtube.com/playlist*',
-        '*://www.youtube.com/playlist*',
+        // Filtered mode needs the content script on home, search, channel pages, etc.
+        // Strict mode does a mode-check and only activates History API interception.
+        '*://youtube.com/*',
+        '*://www.youtube.com/*',
       ],
       js: ['src/ui/content/content.ts'],
       run_at: 'document_start',

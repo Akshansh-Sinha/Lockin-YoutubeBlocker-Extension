@@ -323,3 +323,64 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #6a6a6a;
 }
+
+/* ── Mode toggle ─────────────────────────────────────────────────────────── */
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.btn-mode {
+  height: 34px;
+  border: none;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-mode:first-child {
+  border-right: 1px solid var(--line);
+}
+
+.btn-mode.active {
+  background: var(--accent);
+  color: #252525;
+}
+
+.btn-mode:not(.active):hover {
+  background: var(--panel-soft);
+  color: var(--accent);
+}
+
+.mode-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.shorts-notice {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(216, 208, 189, 0.08);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.channel-error {
+  min-height: 16px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 6px;
+}

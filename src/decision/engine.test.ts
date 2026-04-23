@@ -15,6 +15,7 @@ describe('decision engine', () => {
       whitelist: {
         videos: [{ id: 'whitelisted_video', name: 'Test video' }],
         playlists: [],
+        channels: [],
       },
     };
 
@@ -22,16 +23,19 @@ describe('decision engine', () => {
     expect(verdict.action).toBe('allow');
   });
 
-  it('should allow legacy string whitelist entries', async () => {
+  it('should allow video watched from whitelisted playlist (video+list combo URL)', async () => {
+    // Note: string normalization happens in getStorage() before data reaches the rule.
+    // By the time Context is built, whitelist items are always WhitelistItem objects.
     const context: Context = {
       url: new URL('https://youtube.com/watch?v=legacy_video&list=legacy_playlist'),
       now: Date.now(),
       override: defaults.override,
       settings: defaults.settings,
       whitelist: {
-        videos: ['legacy_video'],
-        playlists: ['legacy_playlist'],
-      } as unknown as Context['whitelist'],
+        videos: [{ id: 'legacy_video' }],
+        playlists: [{ id: 'legacy_playlist' }],
+        channels: [],
+      },
     };
 
     const verdict = await getVerdict(context);
@@ -47,6 +51,7 @@ describe('decision engine', () => {
       whitelist: {
         videos: [],
         playlists: [],
+        channels: [],
       },
     };
 
@@ -134,6 +139,7 @@ describe('decision engine', () => {
       whitelist: {
         videos: [],
         playlists: [{ id: 'whitelisted_playlist', name: 'Test playlist' }],
+        channels: [],
       },
     };
 
@@ -150,12 +156,13 @@ describe('decision engine', () => {
       whitelist: {
         videos: [],
         playlists: [{ id: 'whitelisted_playlist', name: 'Test playlist' }],
+        channels: [],
       },
     };
 
     const verdict = await getVerdict(context);
     expect(verdict.action).toBe('allow');
-    expect(verdict.reason).toBe('Playlist whitelisted');
+    expect(verdict.reason).toBe('Whitelisted');
   });
 
   it('should block video from non-whitelisted playlist', async () => {
@@ -167,6 +174,7 @@ describe('decision engine', () => {
       whitelist: {
         videos: [],
         playlists: [],
+        channels: [],
       },
     };
 

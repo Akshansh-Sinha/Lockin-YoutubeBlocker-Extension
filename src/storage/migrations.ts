@@ -3,9 +3,11 @@ import type { StorageSchema } from './types';
 export function getDefaults(): StorageSchema {
   return {
     schemaVersion: 1,
+    mode: 'strict',
     whitelist: {
       videos: [],
       playlists: [],
+      channels: [],
     },
     settings: {
       stripRelated: true,

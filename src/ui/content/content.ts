@@ -1,114 +1,243 @@
+import type { Context } from '@/core/engine';
+import { extractContext, isAllowed } from '@/core/engine';
+import { getStorage } from '@/storage';
+import type { Whitelist } from '@/storage/types';
+
 // Content script: runs on allowed YouTube pages
-// Monitors History API and redirects blocked navigations
+// Monitors DOM and hides non-whitelisted items in filtered mode
 
 const BLOCK_PAGE = chrome.runtime.getURL('src/ui/block/index.html');
 
 console.log('[Lockin] Content script starting on URL:', window.location.href);
 
-async function checkAndDecideUrl(urlString: string): Promise<{ action: 'allow' | 'block'; reason: string }> {
-  console.log('[Lockin] checkAndDecideUrl called for:', urlString);
+// ─── Filtered mode — DOM Interception ─────────────────────────────────────────
 
+const TARGETS = [
+  // Video renderers
+  'ytd-rich-item-renderer',
+  'ytd-video-renderer',
+  'ytd-playlist-video-renderer',
+  'ytd-compact-video-renderer',
+  'ytd-grid-video-renderer', // Legacy channel pages
+  'ytd-channel-video-renderer',
+  'yt-lockup-view-model', // Newer YouTube component wrapper
+  
+  // Shorts and shelves
+  'ytd-reel-item-renderer',
+  'ytd-rich-section-renderer', // Shorts shelves / Trending shelves
+  'ytd-reel-shelf-renderer',
+  'ytd-shorts', // The shorts player itself
+  
+  // Navigation
+  'ytd-guide-entry-renderer', // Sidebar links
+  'ytd-mini-guide-entry-renderer',
+
+  // Ads
+  'ytd-ad-slot-renderer',
+  'ytd-in-feed-ad-layout-renderer',
+  'ytd-banner-promo-renderer',
+  'ytd-promoted-sparkles-web-renderer'
+];
+
+const TARGETS_SELECTOR = TARGETS.join(', ');
+
+/**
+ * Attempt to extract URL context from a DOM element (video tile).
+ * We look for the main watch/playlist anchor, and optionally the channel anchor.
+ */
+function buildContext(el: Element): Context | null {
+  // The main shorts viewer doesn't contain a link to itself.
+  if (el.tagName.toLowerCase() === 'ytd-shorts') {
+    return extractContext(window.location.href);
+  }
+
+  // ── 1. Main content link (video / shorts / playlist) ──────────────────────
+  const contentAnchor =
+    el.querySelector<HTMLAnchorElement>('a[href*="/shorts/"]') ??
+    el.querySelector<HTMLAnchorElement>('a[href*="/watch"]') ??
+    el.querySelector<HTMLAnchorElement>('a[href*="/playlist"]');
+
+  if (!contentAnchor) return null;
+
+  const raw = contentAnchor.getAttribute('href') ?? '';
+  const fullUrl = raw.startsWith('http') ? raw : `https://www.youtube.com${raw}`;
+  let ctx = extractContext(fullUrl);
+
+  // ── 2. Channel link ───────────────────────────────────────────────────────
+  // Context from the main link usually won't have the channelId unless it's a channel URL.
+  // We need to scrape the secondary anchor on the tile for the channel.
+  if (!ctx.channelId) {
+    const channelAnchor =
+      el.querySelector<HTMLAnchorElement>('a[href^="/@"]') ??
+      el.querySelector<HTMLAnchorElement>('a[href*="/channel/UC"]');
+
+    if (channelAnchor) {
+      const chRaw = channelAnchor.getAttribute('href') ?? '';
+      const chUrl = chRaw.startsWith('http') ? chRaw : `https://www.youtube.com${chRaw}`;
+      const chCtx = extractContext(chUrl);
+      // Merge channelId into the existing context
+      ctx = { ...ctx, channelId: chCtx.channelId };
+    } else {
+      // Fallback: If we are ON a channel page, the individual video tiles often omit the channel link.
+      // We can use the current page's URL to infer the channel.
+      const currentUrlCtx = extractContext(window.location.href);
+      if (currentUrlCtx.channelId) {
+        ctx = { ...ctx, channelId: currentUrlCtx.channelId };
+      }
+    }
+  }
+
+  return ctx;
+}
+
+function filterElement(el: Element, whitelist: Whitelist): void {
+  // Already hidden — nothing to do
+  if ((el as HTMLElement).style.display === 'none') return;
+
+  // Unconditionally hide ads
+  const isAd = ['ytd-ad-slot-renderer', 'ytd-in-feed-ad-layout-renderer', 'ytd-banner-promo-renderer', 'ytd-promoted-sparkles-web-renderer']
+    .includes(el.tagName.toLowerCase()) || el.querySelector('.ytd-ad-slot-renderer, [class*="ad-slot"]');
+  
+  if (isAd) {
+    (el as HTMLElement).style.display = 'none';
+    return;
+  }
+
+  const ctx = buildContext(el);
+  if (!ctx) return; // can't resolve → skip, don't hide
+
+  if (!isAllowed(ctx, whitelist, 'filtered')) {
+    (el as HTMLElement).style.display = 'none';
+
+    // If we just hid a Short inside a shelf, hide the entire shelf container to prevent empty "Shorts" sections.
+    if (ctx.isShort) {
+      const section = el.closest('ytd-rich-section-renderer, ytd-reel-shelf-renderer');
+      if (section) {
+        (section as HTMLElement).style.display = 'none';
+      }
+    }
+  }
+}
+
+function filterAllTiles(whitelist: Whitelist): void {
+  document.querySelectorAll(TARGETS_SELECTOR).forEach((el) => {
+    // Reset any previous hide so we can re-evaluate with a potentially changed whitelist
+    (el as HTMLElement).style.display = '';
+    filterElement(el, whitelist);
+  });
+}
+
+function attachObserver(whitelist: Whitelist) {
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof Element)) continue;
+
+        // 1. If the added node IS a target tile or contains target tiles
+        for (const sel of TARGETS) {
+          if (node.matches(sel)) {
+            // Execute synchronously to prevent visual flicker
+            filterElement(node, whitelist);
+          }
+          node.querySelectorAll(sel).forEach((el) => {
+            filterElement(el, whitelist);
+          });
+        }
+
+        // 2. If the added node was inserted INSIDE an existing tile
+        // (YouTube renders custom elements asynchronously, so the tile is
+        // often injected empty, and its anchor tags are added moments later).
+        const parentTile = node.closest(TARGETS_SELECTOR);
+        if (parentTile) {
+          filterElement(parentTile, whitelist);
+        }
+      }
+    }
+  });
+
+  observer.observe(document.documentElement || document, { childList: true, subtree: true });
+}
+
+function activateDOMFilter(whitelist: Whitelist) {
+  // First pass on existing DOM
+  filterAllTiles(whitelist);
+
+  // Hook into YouTube's SPA navigation events
+  window.addEventListener('yt-navigate-finish', () => {
+    // Re-fetch storage just in case it changed during the session
+    getStorage().then(({ whitelist: newWhitelist }) => {
+      filterAllTiles(newWhitelist);
+    });
+  });
+
+  // Attach observer for newly rendered tiles
+  if (document.body) {
+    attachObserver(whitelist);
+    return;
+  }
+
+  const docWatcher = new MutationObserver((_, obs) => {
+    if (document.body) {
+      obs.disconnect();
+      attachObserver(whitelist);
+    }
+  });
+  docWatcher.observe(document.documentElement || document, { childList: true, subtree: true });
+}
+
+// ─── Strict mode — History API interception ───────────────────────────────────
+
+async function checkAndDecideUrl(urlString: string): Promise<{ action: 'allow' | 'block'; reason: string }> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
-      {
-        type: 'CHECK_AND_DECIDE',
-        url: urlString,
-      },
+      { type: 'CHECK_AND_DECIDE', url: urlString },
       (response) => {
-        console.log('[Lockin] checkAndDecideUrl response:', response);
         resolve(response || { action: 'allow', reason: 'Default allow' });
       }
     );
   });
 }
 
-function setupHistoryListener() {
-  console.log('[Lockin] Setting up History API interception');
-
+function setupHistoryListener(): void {
   const originalPushState = window.history.pushState;
   const originalReplaceState = window.history.replaceState;
 
-  window.history.pushState = function (state: any, unused: string, url?: string | URL | null) {
-    console.log('[Lockin] pushState called with URL:', url);
-
-    // Always call the original pushState first
+  window.history.pushState = function (state: unknown, unused: string, url?: string | URL | null) {
     const result = originalPushState.call(this, state, unused, url);
-    console.log('[Lockin] Original pushState called, history stack updated');
 
     if (url) {
       const urlString = url instanceof URL ? url.href : String(url);
       const fullUrl = new URL(urlString, window.location.href).toString();
 
-      console.log('[Lockin] Full URL after pushState:', fullUrl);
-
-      // Only intercept youtube.com URLs
       if (fullUrl.includes('youtube.com')) {
-        console.log('[Lockin] YouTube URL detected, checking if blocked...');
-
-        // Check decision asynchronously AFTER pushState succeeds
         checkAndDecideUrl(fullUrl).then((decision) => {
-          console.log('[Lockin] Decision received:', decision);
-
           if (decision.action === 'block') {
-            console.log('[Lockin] URL is blocked, calling history.back()');
-
-            // Go back to undo the pushState
             window.history.back();
-
-            // Then immediately redirect to block page
             setTimeout(() => {
-              console.log('[Lockin] Redirecting to block page');
-              const encodedUrl = encodeURIComponent(fullUrl);
-              const encodedReason = encodeURIComponent(decision.reason);
-              const blockUrl = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
-              console.log('[Lockin] Block page URL:', blockUrl);
+              const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}`;
               window.location.href = blockUrl;
             }, 50);
-          } else {
-            console.log('[Lockin] URL is allowed, navigation continuing');
           }
         }).catch((error) => {
           console.error('[Lockin] Error during checkAndDecideUrl:', error);
         });
-      } else {
-        console.log('[Lockin] Non-YouTube URL, skipping check:', fullUrl);
       }
-    } else {
-      console.log('[Lockin] pushState called without URL parameter');
     }
 
     return result;
   };
 
-  window.history.replaceState = function (state: any, unused: string, url?: string | URL | null) {
-    console.log('[Lockin] replaceState called with URL:', url);
-
-    // For replaceState, check first since we're replacing not adding
+  window.history.replaceState = function (state: unknown, unused: string, url?: string | URL | null) {
     if (url) {
       const urlString = url instanceof URL ? url.href : String(url);
       const fullUrl = new URL(urlString, window.location.href).toString();
 
-      console.log('[Lockin] Full URL for replaceState:', fullUrl);
-
-      // Only intercept youtube.com URLs
       if (fullUrl.includes('youtube.com')) {
-        console.log('[Lockin] YouTube URL detected in replaceState, checking if blocked...');
-
-        // Check if blocked before replacing
         checkAndDecideUrl(fullUrl).then((decision) => {
-          console.log('[Lockin] replaceState decision:', decision);
-
           if (decision.action === 'allow') {
-            console.log('[Lockin] URL allowed in replaceState, calling original');
-            // Safe to replace
             originalReplaceState.call(this, state, unused, url);
           } else {
-            console.log('[Lockin] URL blocked in replaceState, redirecting to block page');
-            // Don't replace, redirect to block page
-            const encodedUrl = encodeURIComponent(fullUrl);
-            const encodedReason = encodeURIComponent(decision.reason);
-            const blockUrl = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
-            console.log('[Lockin] Block page URL:', blockUrl);
+            const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}`;
             window.location.href = blockUrl;
           }
         }).catch((error) => {
@@ -116,45 +245,43 @@ function setupHistoryListener() {
         });
         return undefined;
       }
-    } else {
-      console.log('[Lockin] replaceState called without URL parameter');
     }
 
     return originalReplaceState.call(this, state, unused, url);
   };
 
-  // Also listen for popstate (back/forward button)
-  // This fires AFTER the history has changed
   window.addEventListener('popstate', () => {
-    console.log('[Lockin] popstate event fired, current URL:', window.location.href);
-
     const url = new URL(window.location.href);
     checkAndDecideUrl(url.toString()).then((decision) => {
-      console.log('[Lockin] popstate decision:', decision);
-
       if (decision.action === 'block') {
-        console.log('[Lockin] Popstate led to blocked URL, calling history.back() and redirecting');
-        // User navigated to a blocked URL via back button
-        // Go back again and show block page
         window.history.back();
         setTimeout(() => {
-          console.log('[Lockin] Redirecting after popstate back');
-          const encodedUrl = encodeURIComponent(url.toString());
-          const encodedReason = encodeURIComponent(decision.reason);
-          const blockUrl = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
-          console.log('[Lockin] Block page URL:', blockUrl);
+          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(url.toString())}&reason=${encodeURIComponent(decision.reason)}`;
           window.location.href = blockUrl;
         }, 50);
-      } else {
-        console.log('[Lockin] Popstate led to allowed URL');
       }
     }).catch((error) => {
       console.error('[Lockin] Error during popstate check:', error);
     });
   });
-
-  console.log('[Lockin] History API interception setup complete');
 }
 
-setupHistoryListener();
-console.log('[Lockin] Content script initialized');
+// ─── Startup ──────────────────────────────────────────────────────────────────
+
+async function init(): Promise<void> {
+  const { mode, whitelist } = await getStorage();
+
+  if (mode === 'strict') {
+    setupHistoryListener();
+  } else {
+    activateDOMFilter(whitelist);
+  }
+
+  // Any storage change → reload for a clean re-init in the correct mode
+  // with a fresh whitelist.
+  chrome.storage.onChanged.addListener(() => {
+    window.location.reload();
+  });
+}
+
+init().catch((err) => console.error('[Lockin] Content script init error:', err));

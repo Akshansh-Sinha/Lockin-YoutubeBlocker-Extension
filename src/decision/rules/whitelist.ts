@@ -1,59 +1,31 @@
 import type { Rule } from '../types';
-import type { WhitelistItem } from '@/storage/types';
-import { classifyRoute } from '@/interception/classifier';
+import { extractContext, isAllowed } from '@/core/engine';
 
-type RuntimeWhitelistItem = WhitelistItem | string;
-
-function itemMatchesId(item: RuntimeWhitelistItem, id: string): boolean {
-  return typeof item === 'string' ? item === id : item.id === id;
-}
-
+/**
+ * Whitelist rule — delegates URL parsing and allow-checking to core/engine.ts.
+ *
+ * Strict mode only: channels are NOT consulted here — channel pages are blocked
+ * unless individual content (video/playlist) is whitelisted.
+ *
+ * Allows:
+ *  - Whitelisted video IDs (including /shorts/ videoIds)
+ *  - Whitelisted playlist IDs (including ?v=X&list=Y combos)
+ *
+ * Blocks everything else (home, search, unknown routes, channels, non-whitelisted content).
+ */
 export const whitelistRule: Rule = (ctx) => {
-  const route = classifyRoute(ctx.url);
+  const urlStr = ctx.url.toString();
+  const extracted = extractContext(urlStr);
 
-  // Home, search, shorts, etc. — not content URLs, so block
-  if (route.type !== 'video' && route.type !== 'playlist') {
-    return {
-      action: 'block',
-      reason: `${route.type}`,
-    };
+  // If none of videoId / playlistId could be extracted, this is a non-content
+  // page (home, search, channel, feed, etc.) — block.
+  if (!extracted.videoId && !extracted.playlistId) {
+    return { action: 'block', reason: 'Non-content URL' };
   }
 
-  if (route.type === 'video' && route.id) {
-    const videoId = route.id;
-
-    // Check if the video itself is whitelisted
-    if ((ctx.whitelist.videos as RuntimeWhitelistItem[]).some(item => itemMatchesId(item, videoId))) {
-      return { action: 'allow', reason: 'Video whitelisted' };
-    }
-
-    // Check if watching from a whitelisted playlist
-    const playlistId = ctx.url.searchParams.get('list');
-    if (playlistId && (ctx.whitelist.playlists as RuntimeWhitelistItem[]).some(item => itemMatchesId(item, playlistId))) {
-      return { action: 'allow', reason: 'Playlist whitelisted' };
-    }
-
-    return {
-      action: 'block',
-      reason: 'Video not whitelisted',
-    };
+  if (isAllowed(extracted, ctx.whitelist, 'strict')) {
+    return { action: 'allow', reason: 'Whitelisted' };
   }
 
-  if (route.type === 'playlist' && route.id) {
-    const playlistId = route.id;
-
-    if ((ctx.whitelist.playlists as RuntimeWhitelistItem[]).some(item => itemMatchesId(item, playlistId))) {
-      return { action: 'allow', reason: 'Playlist whitelisted' };
-    }
-    return {
-      action: 'block',
-      reason: 'Playlist not whitelisted',
-    };
-  }
-
-  // No ID found (malformed URL)
-  return {
-    action: 'block',
-    reason: 'Could not extract ID from URL',
-  };
+  return { action: 'block', reason: 'Not whitelisted' };
 };
