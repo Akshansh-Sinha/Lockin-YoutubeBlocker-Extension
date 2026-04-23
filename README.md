@@ -14,10 +14,10 @@ YouTube is packed with extremely valuable educational content, but it's delibera
 
 ### ✨ Features
 - **Strict Video Whitelisting**: Only allow explicit educational or necessary videos to play.
-- **Playlist Unlocking**: Whitelist entire playlists securely. 
+- **Playlist Unlocking**: Whitelist entire playlists securely.
 - **The Lockscreen**: A beautiful, minimal distraction-free block screen with a live responsive analog clock designed to anchor you back to reality.
-- **Password Locking**: Optionally safeguard your whitelist settings by requiring a passcode to change overrides.
-- **Temporary Bypasses**: Give yourself a quick 2-min, 5-min, or 10-min bypass when you legitimately need to break focus for a bit.
+- **Typing Challenge**: To disable blocking, you must type *"I have completed my studies"* — preventing impulsive unlocks.
+- **Temporary Bypasses**: Give yourself a quick 2-min, 5-min, or 10-min bypass when you legitimately need to break focus.
 
 ## 📸 Screenshot
 
