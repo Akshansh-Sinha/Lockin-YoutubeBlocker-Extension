@@ -1,4 +1,4 @@
-import { handleNavigation } from '@/interception/index';
+import { handleNavigation, makeDecision } from '@/interception/index';
 
 // Listen for hard navigations (onBeforeNavigate)
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
@@ -34,12 +34,21 @@ chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   handleNavigation(url);
 });
 
-// Message listener for content script fallback
+// Message listener for content script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === 'CHECK_URL') {
-    const url = new URL(message.url);
-    handleNavigation(url);
-    sendResponse({ ok: true });
+  if (message.type === 'CHECK_AND_DECIDE') {
+    makeDecision(new URL(message.url))
+      .then((verdict) => {
+        sendResponse({
+          action: verdict.action,
+          reason: verdict.reason,
+        });
+      })
+      .catch((error) => {
+        console.error('[FocusedTube] Decision error:', error);
+        sendResponse({ action: 'block', reason: 'Decision error' });
+      });
+    return true; // Indicate we'll send a response asynchronously
   }
 });
 

@@ -1,8 +1,28 @@
 import { getVerdict } from '@/decision/engine';
-import type { Context } from '@/decision/types';
+import type { Context, Verdict } from '@/decision/types';
 import { getStorage } from '@/storage/index';
 
 const BLOCK_PAGE = chrome.runtime.getURL('src/ui/block/index.html');
+
+export async function makeDecision(url: URL): Promise<Verdict> {
+  try {
+    const storage = await getStorage();
+    const now = Date.now();
+
+    const context: Context = {
+      url,
+      now,
+      override: storage.override,
+      settings: storage.settings,
+      whitelist: storage.whitelist,
+    };
+
+    return await getVerdict(context);
+  } catch (error) {
+    console.error('[FocusedTube] Decision error:', error);
+    return { action: 'block', reason: 'Internal error' };
+  }
+}
 
 export async function handleNavigation(url: URL): Promise<void> {
   try {
