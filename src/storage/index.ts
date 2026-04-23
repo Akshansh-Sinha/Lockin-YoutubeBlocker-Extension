@@ -1,14 +1,45 @@
-import type { StorageSchema } from './types';
+import type { StorageSchema, Whitelist, WhitelistItem } from './types';
 import { getDefaults } from './migrations';
+
+type LegacyWhitelistItem = string | WhitelistItem;
+type LegacyWhitelist = {
+  videos?: LegacyWhitelistItem[];
+  playlists?: LegacyWhitelistItem[];
+};
+
+function normalizeWhitelistItem(item: LegacyWhitelistItem): WhitelistItem | null {
+  if (typeof item === 'string') {
+    return item ? { id: item } : null;
+  }
+
+  if (item && typeof item.id === 'string' && item.id) {
+    return {
+      id: item.id,
+      name: item.name,
+    };
+  }
+
+  return null;
+}
+
+function normalizeWhitelist(whitelist: LegacyWhitelist | undefined, fallback: Whitelist): Whitelist {
+  const videos = whitelist?.videos ?? fallback.videos;
+  const playlists = whitelist?.playlists ?? fallback.playlists;
+
+  return {
+    videos: videos.map(normalizeWhitelistItem).filter((item): item is WhitelistItem => item !== null),
+    playlists: playlists.map(normalizeWhitelistItem).filter((item): item is WhitelistItem => item !== null),
+  };
+}
 
 export async function getStorage(): Promise<StorageSchema> {
   const data = await chrome.storage.local.get(null);
-  const stored = data as Partial<StorageSchema>;
+  const stored = data as Partial<Omit<StorageSchema, 'whitelist'>> & { whitelist?: LegacyWhitelist };
 
   const schema = getDefaults();
   return {
     schemaVersion: stored.schemaVersion ?? schema.schemaVersion,
-    whitelist: stored.whitelist ?? schema.whitelist,
+    whitelist: normalizeWhitelist(stored.whitelist, schema.whitelist),
     settings: stored.settings ?? schema.settings,
     security: stored.security ?? schema.security,
     override: stored.override ?? schema.override,

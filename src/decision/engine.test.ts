@@ -22,6 +22,22 @@ describe('decision engine', () => {
     expect(verdict.action).toBe('allow');
   });
 
+  it('should allow legacy string whitelist entries', async () => {
+    const context: Context = {
+      url: new URL('https://youtube.com/watch?v=legacy_video&list=legacy_playlist'),
+      now: Date.now(),
+      override: defaults.override,
+      settings: defaults.settings,
+      whitelist: {
+        videos: ['legacy_video'],
+        playlists: ['legacy_playlist'],
+      } as unknown as Context['whitelist'],
+    };
+
+    const verdict = await getVerdict(context);
+    expect(verdict.action).toBe('allow');
+  });
+
   it('should block non-whitelisted video', async () => {
     const context: Context = {
       url: new URL('https://youtube.com/watch?v=unknown_video'),
