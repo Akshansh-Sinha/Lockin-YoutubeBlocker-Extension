@@ -66,8 +66,30 @@ Because this is a locally built developer setup, you must manually load it into 
 
 ---
 
-## 💡 Usage Workflow
-By default, immediately after enabling Lockin, navigating to YouTube will instantly be intercepted by the block screen. To use it intentionally:
-1. Click the Lockin icon inside your browser toolbar.
-2. Under "Add link", paste the URL to the exact video or playlist you need to study.
-3. Once added, your video will seamlessly bypass the locker!
+## 💡 Detailed Usage Workflow
+
+Lockin uses an aggressive default-deny approach: the moment you enable it, **the entire YouTube algorithm is locked.** If you surf to `youtube.com`, you will instantly be met with the Lockin interface. 
+
+To use YouTube intentionally, follow these steps to manage your study sessions effectively:
+
+### 1. First-Time Setup
+Click the Lockin icon in your Google Chrome toolbar. On your very first launch, you will be prompted to create a **Setup Password**. This passcode securely protects your whitelist and prevents you from impulsively turning the blocker off at 2 AM. Do not forget it!
+
+### 2. Whitelisting Specific Content
+You can whitelist any URL directly from YouTube, whether it is a singular educational video or an entire playlist.
+- Copy the exact YouTube web URL. 
+- Open the Lockin popup from your toolbar.
+- In the **Add link** section, assign a descriptive name (optional) and paste the URL.
+- Once added, that video is officially approved. You can explore your organized whitelist directly beneath the **Videos** and **Playlists** headers. By clicking on them inside the extension, Lockin will safely bypass the block screen and drop you right into the video.
+
+### 3. Temporary Unlocks
+If you genuinely need to explore the platform to research something or take a brief break, use a **Temporary Unlock**.
+- Inside the extension UI, locate the **Temporary unlock** section.
+- Click either **2 min**, **5 min**, or **10 min**. 
+- The entire YouTube website will be functionally unlocked for that strict window. Once the countdown expires, Lockin aggressively rears its head and blocks the site once more.
+
+### 4. Overriding & Disabling
+If you are done studying for the day and want to turn Lockin off completely:
+- Hit the red **Disable** button.
+- Lockin will demand the **Setup Password** you configured on your first run. 
+- Submit it to remove the blockers. You can instantly turn it back to aggressive mode via the **Enable blocking** switch!
