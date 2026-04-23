@@ -88,23 +88,55 @@ async function showMainUI() {
   const confirmDisableBtn = document.getElementById('confirmDisableBtn') as HTMLButtonElement;
   const cancelDisableBtn = document.getElementById('cancelDisableBtn') as HTMLButtonElement;
 
+  // ── URL detection feedback ────────────────────────────────────────────────────
+  const urlDetectionHint = document.createElement('p');
+  urlDetectionHint.className = 'url-detection-hint';
+  urlDetectionHint.style.cssText = 'margin-top: 6px; font-size: 12px; color: #666; min-height: 16px;';
+  urlInput.parentElement?.parentElement?.insertBefore(urlDetectionHint, urlInput.parentElement.nextSibling);
+
+  urlInput.addEventListener('input', () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+      urlDetectionHint.textContent = '';
+      return;
+    }
+    const videoId = extractVideoIdFromUrl(url);
+    const playlistId = extractPlaylistIdFromUrl(url);
+
+    if (videoId) {
+      urlDetectionHint.textContent = '✓ Video detected - will add to Videos';
+      urlDetectionHint.style.color = '#2ecc71';
+    } else if (playlistId) {
+      urlDetectionHint.textContent = '✓ Playlist detected - will add to Playlists';
+      urlDetectionHint.style.color = '#2ecc71';
+    } else {
+      urlDetectionHint.textContent = '⚠ No video or playlist detected';
+      urlDetectionHint.style.color = '#e74c3c';
+    }
+  });
+
   addUrlBtn.addEventListener('click', async () => {
     const url = urlInput.value.trim();
     const typedName = nameInput.value.trim() || undefined;
     const videoId = extractVideoIdFromUrl(url);
     const playlistId = extractPlaylistIdFromUrl(url);
 
+    // Priority: if it's a youtu.be or /watch URL with video, always add as VIDEO (not playlist)
+    // This prevents accidental playlist additions when copying video links from playlists
     if (videoId) {
       const name = typedName ?? await fetchYouTubeTitle('video', videoId);
       await addVideoToWhitelist(videoId, name);
       urlInput.value = '';
       nameInput.value = '';
+      urlDetectionHint.textContent = '';
       updateWhitelists();
     } else if (playlistId) {
+      // Only add as playlist if there's NO video ID
       const name = typedName ?? await fetchYouTubeTitle('playlist', playlistId);
       await addPlaylistToWhitelist(playlistId, name);
       urlInput.value = '';
       nameInput.value = '';
+      urlDetectionHint.textContent = '';
       updateWhitelists();
     } else {
       alert('Could not extract video or playlist ID from URL');

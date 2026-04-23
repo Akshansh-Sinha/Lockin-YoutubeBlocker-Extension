@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractContext, isAllowed, isAllowedStrict, isAllowedFiltered } from './engine';
-import type { Whitelist } from '@/storage/types';
+import type { Whitelist, OverrideState } from '@/storage/types';
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 
@@ -10,6 +10,14 @@ function wl(overrides: Partial<Whitelist> = {}): Whitelist {
     playlists: [],
     channels: [],
     ...overrides,
+  };
+}
+
+function override(activeUntil: number | null): OverrideState {
+  return {
+    activeUntil,
+    disabled: false,
+    blockingSessionStartedAt: Date.now(),
   };
 }
 
@@ -132,6 +140,71 @@ describe('isAllowedFiltered', () => {
   it('returns false for all-null context (invalid URL)', () => {
     const ctx = extractContext('not-a-url');
     expect(isAllowedFiltered(ctx, wl({ videos: [{ id: 'abc' }], channels: [{ id: '@x' }] }))).toBe(false);
+  });
+
+  // ─── Override behavior in filtered mode ─────────────────────────────────────
+  it('allows all non-short content when override is active', () => {
+    const ctx = extractContext('https://www.youtube.com/watch?v=blocked');
+    const now = Date.now();
+    const activeOverride = override(now + 60000); // expires in 60 seconds
+    expect(isAllowedFiltered(ctx, wl(), activeOverride, now)).toBe(true);
+  });
+
+  it('blocks content when override has expired', () => {
+    const ctx = extractContext('https://www.youtube.com/watch?v=blocked');
+    const now = Date.now();
+    const expiredOverride = override(now - 1000); // expired 1 second ago
+    expect(isAllowedFiltered(ctx, wl(), expiredOverride, now)).toBe(false);
+  });
+
+  it('allows whitelisted video even without override', () => {
+    const ctx = extractContext('https://www.youtube.com/watch?v=abc');
+    const now = Date.now();
+    expect(isAllowedFiltered(ctx, wl({ videos: [{ id: 'abc' }] }), override(null), now)).toBe(true);
+  });
+
+  it('blocks shorts even when override is active', () => {
+    const ctx = extractContext('https://www.youtube.com/shorts/anything');
+    const now = Date.now();
+    const activeOverride = override(now + 60000);
+    expect(isAllowedFiltered(ctx, wl(), activeOverride, now)).toBe(false);
+  });
+
+  it('uses current time when now is not provided', () => {
+    const ctx = extractContext('https://www.youtube.com/watch?v=blocked');
+    const futureOverride = override(Date.now() + 60000); // expires in future
+    expect(isAllowedFiltered(ctx, wl(), futureOverride)).toBe(true);
+  });
+
+  // ─── Disabled flag behavior in filtered mode ──────────────────────────────
+  it('allows all non-short content when blocking is disabled', () => {
+    const ctx = extractContext('https://www.youtube.com/watch?v=blocked');
+    const disabledOverride: OverrideState = {
+      activeUntil: null,
+      disabled: true,
+      blockingSessionStartedAt: Date.now(),
+    };
+    expect(isAllowedFiltered(ctx, wl(), disabledOverride)).toBe(true);
+  });
+
+  it('blocks shorts even when blocking is disabled', () => {
+    const ctx = extractContext('https://www.youtube.com/shorts/anything');
+    const disabledOverride: OverrideState = {
+      activeUntil: null,
+      disabled: true,
+      blockingSessionStartedAt: Date.now(),
+    };
+    expect(isAllowedFiltered(ctx, wl(), disabledOverride)).toBe(false);
+  });
+
+  it('resumes filtering when blocking is re-enabled', () => {
+    const ctx = extractContext('https://www.youtube.com/watch?v=blocked');
+    const enabledOverride: OverrideState = {
+      activeUntil: null,
+      disabled: false,
+      blockingSessionStartedAt: Date.now(),
+    };
+    expect(isAllowedFiltered(ctx, wl(), enabledOverride)).toBe(false);
   });
 });
 

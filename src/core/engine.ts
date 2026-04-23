@@ -6,7 +6,7 @@
  * functions — never re-implement them.
  */
 
-import type { Whitelist, WhitelistItem, Mode } from '@/storage/types';
+import type { Whitelist, WhitelistItem, Mode, OverrideState } from '@/storage/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,13 +113,36 @@ export function isAllowedStrict(ctx: Context, whitelist: Whitelist): boolean {
  * whether a DOM tile should remain visible.
  *
  * Rules (strict order):
- *  0. Shorts are ALWAYS hidden — no whitelist entry overrides this.
- *  1. videoId   in whitelist.videos   → visible
- *  2. playlistId in whitelist.playlists → visible
- *  3. channelId  in whitelist.channels → visible (includes all their content)
- *  4. → hidden
+ *  0. If blocking is disabled, allow all content (except Shorts remain hidden)
+ *  1. If temporary unlock is active, allow all content (except Shorts remain hidden)
+ *  2. Shorts are ALWAYS hidden — no whitelist entry overrides this.
+ *  3. videoId   in whitelist.videos   → visible
+ *  4. playlistId in whitelist.playlists → visible
+ *  5. channelId  in whitelist.channels → visible (includes all their content)
+ *  6. → hidden
  */
-export function isAllowedFiltered(ctx: Context, whitelist: Whitelist): boolean {
+export function isAllowedFiltered(
+  ctx: Context,
+  whitelist: Whitelist,
+  override?: OverrideState,
+  now?: number
+): boolean {
+  // Check if blocking is disabled
+  if (override && override.disabled) {
+    // Blocking disabled - show all content except Shorts
+    if (ctx.isShort) return false;
+    return true;
+  }
+
+  // Check if temporary unlock is active
+  const currentTime = now ?? Date.now();
+  if (override && override.activeUntil !== null && currentTime < override.activeUntil) {
+    // Temporary unlock is active, but Shorts are still always hidden
+    if (ctx.isShort) return false;
+    return true;
+  }
+
+  // Normal filtering logic
   if (ctx.isShort) return false;
 
   if (ctx.videoId && matchesWhitelistItem(whitelist.videos, ctx.videoId)) {
@@ -140,7 +163,13 @@ export function isAllowedFiltered(ctx: Context, whitelist: Whitelist): boolean {
 /**
  * Unified entry point — routes to the correct mode-specific function.
  */
-export function isAllowed(ctx: Context, whitelist: Whitelist, mode: Mode): boolean {
+export function isAllowed(
+  ctx: Context,
+  whitelist: Whitelist,
+  mode: Mode,
+  override?: OverrideState,
+  now?: number
+): boolean {
   if (mode === 'strict') return isAllowedStrict(ctx, whitelist);
-  return isAllowedFiltered(ctx, whitelist);
+  return isAllowedFiltered(ctx, whitelist, override, now);
 }

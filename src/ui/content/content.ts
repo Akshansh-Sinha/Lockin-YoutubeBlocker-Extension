@@ -1,7 +1,7 @@
 import type { Context } from '@/core/engine';
 import { extractContext, isAllowed } from '@/core/engine';
 import { getStorage } from '@/storage';
-import type { Whitelist } from '@/storage/types';
+import type { Whitelist, OverrideState } from '@/storage/types';
 
 // Content script: runs on allowed YouTube pages
 // Monitors DOM and hides non-whitelisted items in filtered mode
@@ -108,7 +108,7 @@ function buildContext(el: Element): Context | null {
   return ctx;
 }
 
-function filterElement(el: Element, whitelist: Whitelist): void {
+function filterElement(el: Element, whitelist: Whitelist, override?: OverrideState): void {
   // Already hidden — nothing to do
   if ((el as HTMLElement).style.display === 'none') return;
 
@@ -123,7 +123,7 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   // Unconditionally hide ads and Shorts-exclusive components
   const isAdOrShorts = ['ytd-ad-slot-renderer', 'ytd-in-feed-ad-layout-renderer', 'ytd-banner-promo-renderer', 'ytd-promoted-sparkles-web-renderer', 'ytd-reel-shelf-renderer', 'ytd-reel-item-renderer']
     .includes(tagName) || el.querySelector('.ytd-ad-slot-renderer, [class*="ad-slot"]');
-  
+
   if (isAdOrShorts) {
     if (isSearchPage) console.log(`[Lockin-Debug] Unconditionally hiding Ad/Shorts: <${tagName}>`);
     (el as HTMLElement).style.setProperty('display', 'none', 'important');
@@ -151,7 +151,7 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   if (tagName === 'ytd-shelf-renderer' || tagName === 'ytd-horizontal-card-list-renderer') {
     const title = el.querySelector('#title')?.textContent?.trim();
     const hasIcon = !!el.querySelector('yt-icon[icon="yt-shorts"], .ytd-shorts-logo, svg path[d^="M10 14.65v-5.3L15 12l-5 2.65zm7.77-4.33"]');
-    
+
     if (isSearchPage) {
       console.log(`[Lockin-Debug] Search Shelf Check <${tagName}> -> title: "${title}", hasShortsIcon: ${hasIcon}`);
     }
@@ -171,7 +171,7 @@ function filterElement(el: Element, whitelist: Whitelist): void {
     return; // can't resolve → skip, don't hide
   }
 
-  if (!isAllowed(ctx, whitelist, 'filtered')) {
+  if (!isAllowed(ctx, whitelist, 'filtered', override)) {
     if (isSearchPage) {
       console.log(`[Lockin-Debug] HIDING video tile <${tagName}> (isShort: ${ctx.isShort}, url: ${ctx.url})`);
     }
@@ -192,15 +192,15 @@ function filterElement(el: Element, whitelist: Whitelist): void {
   }
 }
 
-function filterAllTiles(whitelist: Whitelist): void {
+function filterAllTiles(whitelist: Whitelist, override?: OverrideState): void {
   document.querySelectorAll(TARGETS_SELECTOR).forEach((el) => {
     // Reset any previous hide so we can re-evaluate with a potentially changed whitelist
     (el as HTMLElement).style.display = '';
-    filterElement(el, whitelist);
+    filterElement(el, whitelist, override);
   });
 }
 
-function attachObserver(whitelist: Whitelist) {
+function attachObserver(whitelist: Whitelist, override?: OverrideState) {
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
@@ -210,10 +210,10 @@ function attachObserver(whitelist: Whitelist) {
         for (const sel of TARGETS) {
           if (node.matches(sel)) {
             // Execute synchronously to prevent visual flicker
-            filterElement(node, whitelist);
+            filterElement(node, whitelist, override);
           }
           node.querySelectorAll(sel).forEach((el) => {
-            filterElement(el, whitelist);
+            filterElement(el, whitelist, override);
           });
         }
 
@@ -222,7 +222,7 @@ function attachObserver(whitelist: Whitelist) {
         // often injected empty, and its anchor tags are added moments later).
         const parentTile = node.closest(TARGETS_SELECTOR);
         if (parentTile) {
-          filterElement(parentTile, whitelist);
+          filterElement(parentTile, whitelist, override);
         }
       }
     }
@@ -270,7 +270,7 @@ function injectGlobalStyles() {
   (document.head || document.documentElement).appendChild(style);
 }
 
-function activateDOMFilter(whitelist: Whitelist) {
+function activateDOMFilter(whitelist: Whitelist, override?: OverrideState) {
   // Inject CSS for guaranteed absolute hiding of Shorts
   injectGlobalStyles();
 
@@ -278,28 +278,28 @@ function activateDOMFilter(whitelist: Whitelist) {
   enforceFilteredModeNavigation();
 
   // First pass on existing DOM
-  filterAllTiles(whitelist);
+  filterAllTiles(whitelist, override);
 
   // Hook into YouTube's SPA navigation events
   window.addEventListener('yt-navigate-finish', () => {
     enforceFilteredModeNavigation();
 
     // Re-fetch storage just in case it changed during the session
-    getStorage().then(({ whitelist: newWhitelist }) => {
-      filterAllTiles(newWhitelist);
+    getStorage().then(({ whitelist: newWhitelist, override: newOverride }) => {
+      filterAllTiles(newWhitelist, newOverride);
     });
   });
 
   // Attach observer for newly rendered tiles
   if (document.body) {
-    attachObserver(whitelist);
+    attachObserver(whitelist, override);
     return;
   }
 
   const docWatcher = new MutationObserver((_, obs) => {
     if (document.body) {
       obs.disconnect();
-      attachObserver(whitelist);
+      attachObserver(whitelist, override);
     }
   });
   docWatcher.observe(document.documentElement || document, { childList: true, subtree: true });
@@ -389,12 +389,12 @@ function setupHistoryListener(): void {
 // ─── Startup ──────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
-  const { mode, whitelist } = await getStorage();
+  const { mode, whitelist, override } = await getStorage();
 
   if (mode === 'strict') {
     setupHistoryListener();
   } else {
-    activateDOMFilter(whitelist);
+    activateDOMFilter(whitelist, override);
   }
 
   // Any storage change → reload for a clean re-init in the correct mode

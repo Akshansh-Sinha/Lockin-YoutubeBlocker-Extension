@@ -57,7 +57,10 @@ export function extractVideoIdFromUrl(url: string): string | null {
     }
     // youtu.be shortlinks
     if (urlObj.hostname === 'youtu.be') {
-      return urlObj.pathname.slice(1).split('?')[0];
+      // Extract just the video ID, ignoring any query parameters
+      // youtu.be/VIDEO_ID or youtu.be/VIDEO_ID?list=... → just VIDEO_ID
+      const videoId = urlObj.pathname.slice(1).split('/')[0];
+      return videoId || null;
     }
   } catch {
     // invalid URL
