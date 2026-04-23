@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FocusedTube — Access Restricted</title>
+  <title>FocusedTube - Time to Study</title>
   <style>
     * {
       margin: 0;
@@ -11,367 +11,182 @@
       box-sizing: border-box;
     }
 
-    html, body {
-      height: 100%;
+    :root {
+      --bg: #343434;
+      --panel: #3c3c3c;
+      --panel-soft: #454545;
+      --text: #f5f2ea;
+      --muted: #c8c2b6;
+      --line: #565656;
+      --accent: #d8d0bd;
+    }
+
+    html,
+    body {
+      min-height: 100%;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
-      color: #333;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 48px 24px;
     }
 
-    .container {
-      width: 100%;
-      max-width: 550px;
+    main {
+      width: min(920px, 100%);
+      margin: 0 auto;
     }
 
-    .header {
-      text-align: center;
-      margin-bottom: 32px;
-      animation: slideDown 0.5s ease-out;
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .icon-container {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 100px;
-      height: 100px;
-      background: white;
-      border-radius: 50%;
-      margin-bottom: 20px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-      animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    @keyframes scaleIn {
-      from {
-        transform: scale(0.3);
-        opacity: 0;
-      }
-      to {
-        transform: scale(1);
-        opacity: 1;
-      }
-    }
-
-    .icon-container svg {
-      width: 60px;
-      height: 60px;
-      animation: pulse 2.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+    .hero {
+      padding: 9vh 0 42px;
     }
 
     h1 {
-      font-size: 36px;
-      font-weight: 800;
-      color: white;
-      letter-spacing: -1px;
-      margin-bottom: 8px;
+      max-width: 760px;
+      color: var(--text);
+      font-size: clamp(56px, 10vw, 118px);
+      font-weight: 720;
+      line-height: 0.94;
+      letter-spacing: 0;
     }
 
-    .subtitle {
-      font-size: 16px;
-      color: rgba(255, 255, 255, 0.9);
-      font-weight: 500;
-    }
-
-    .card {
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
-      animation: slideUp 0.6s ease-out;
-      margin-bottom: 20px;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .reason-section {
-      margin-bottom: 28px;
-      padding-bottom: 28px;
-      border-bottom: 2px solid #f0f0f0;
-    }
-
-    .reason-label {
+    .requested-url {
+      max-width: 760px;
+      margin-top: 22px;
+      color: var(--muted);
+      font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
       font-size: 12px;
-      font-weight: 700;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 10px;
-    }
-
-    .reason-text {
-      font-size: 18px;
-      font-weight: 600;
-      color: #667eea;
-      line-height: 1.5;
-    }
-
-    .url-section {
-      background: linear-gradient(135deg, #f5f7ff 0%, #f0f4ff 100%);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 28px;
-      border-left: 4px solid #667eea;
-    }
-
-    .url-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
-    }
-
-    .url-text {
-      font-size: 13px;
-      color: #555;
-      font-family: 'SF Mono', Monaco, 'Cascade Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-      word-break: break-all;
       line-height: 1.6;
-      letter-spacing: -0.3px;
+      overflow-wrap: anywhere;
     }
 
-    .actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .btn {
-      padding: 14px 20px;
-      border: none;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-back {
-      background: #f0f0f0;
-      color: #333;
-      grid-column: 1;
-    }
-
-    .btn-back:hover {
-      background: #e0e0e0;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-    }
-
-    .btn-add {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      grid-column: 2;
-    }
-
-    .btn-add:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(102, 126, 234, 0.3);
-    }
-
-    .btn-add:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .add-full {
-      grid-column: 1 / -1;
-    }
-
-    .success-banner {
-      display: none;
-      background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-      color: white;
-      padding: 16px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      animation: slideDown 0.4s ease-out;
-    }
-
-    .success-banner.show {
-      display: flex;
-    }
-
-    .success-banner svg {
-      flex-shrink: 0;
-    }
-
-    .info-box {
-      background: #fffbea;
-      border: 2px solid #ffe0b2;
-      border-radius: 12px;
-      padding: 16px;
-      font-size: 13px;
-      color: #666;
-      line-height: 1.7;
-    }
-
-    .info-box strong {
-      color: #f57c00;
-      font-weight: 700;
-    }
-
-    .debug-section {
-      margin-top: 20px;
-    }
-
-    .debug-section details {
-      background: #f9f9f9;
-      border-radius: 12px;
-      border: 1px solid #e0e0e0;
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
       overflow: hidden;
     }
 
-    .debug-section summary {
-      padding: 12px 16px;
-      cursor: pointer;
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      font-size: 14px;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .count {
+      color: var(--muted);
       font-size: 12px;
-      font-weight: 700;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      user-select: none;
-      background: #f5f5f5;
-      transition: all 0.2s;
     }
 
-    .debug-section summary:hover {
-      background: #eee;
+    table {
+      width: 100%;
+      border-collapse: collapse;
     }
 
-    .debug-section pre {
-      margin: 0;
-      padding: 12px 16px;
+    th,
+    td {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
       font-size: 11px;
-      overflow-x: auto;
-      color: #666;
-      font-family: 'SF Mono', Monaco, 'Cascade Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-      line-height: 1.6;
+      font-weight: 650;
     }
 
-    @media (max-width: 480px) {
-      .card {
-        padding: 24px;
+    td {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .link-cell {
+      max-width: 430px;
+    }
+
+    a {
+      display: block;
+      overflow: hidden;
+      color: var(--accent);
+      text-decoration: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    a:hover,
+    a:focus-visible {
+      text-decoration: underline;
+    }
+
+    .empty-row td {
+      color: var(--muted);
+      text-align: center;
+      padding: 28px 18px;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 32px 16px;
       }
 
-      h1 {
-        font-size: 28px;
+      .hero {
+        padding-top: 6vh;
       }
 
-      .actions {
-        grid-template-columns: 1fr;
-      }
-
-      .btn-back {
-        grid-column: 1;
-      }
-
-      .btn-add {
-        grid-column: 1;
-      }
-
-      .add-full {
-        grid-column: 1;
+      th:nth-child(2),
+      td:nth-child(2) {
+        display: none;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="icon-container">
-        <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
-          <circle cx="30" cy="30" r="28" stroke="#667eea" stroke-width="2.5"/>
-          <path d="M30 18V42M18 30H42" stroke="#667eea" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h1>Access Restricted</h1>
-      <p class="subtitle">This content is blocked by FocusedTube</p>
-    </div>
+  <main>
+    <section class="hero">
+      <h1>Time to study</h1>
+      <p class="requested-url" id="urlText"></p>
+    </section>
 
-    <div class="card">
-      <div class="reason-section">
-        <div class="reason-label">Reason</div>
-        <div class="reason-text" id="reasonText">Loading...</div>
+    <section class="table-wrap" aria-labelledby="whitelistTitle">
+      <div class="table-header">
+        <h2 id="whitelistTitle">Whitelisted links</h2>
+        <span class="count" id="whitelistCount">0 links</span>
       </div>
 
-      <div class="url-section">
-        <div class="url-label">Requested URL</div>
-        <div class="url-text" id="urlText">Loading...</div>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-back" id="backBtn">
-          <span>←</span> Go back
-        </button>
-        <button class="btn btn-add" id="addBtn" style="display: none;">
-          <span>+</span> <span id="addBtnText">Add</span>
-        </button>
-      </div>
-
-      <div class="success-banner" id="successBanner">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M17 6L8 15L3 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span id="successText">Added to whitelist!</span>
-      </div>
-
-      <div class="info-box">
-        <strong>💡 Tip:</strong> You can manage your whitelist settings and toggle blocking from the FocusedTube extension popup.
-      </div>
-    </div>
-
-    <div class="debug-section card">
-      <details>
-        <summary>🔍 Debug Information</summary>
-        <pre id="debugInfo">{}</pre>
-      </details>
-    </div>
-  </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody id="whitelistTableBody">
+          <tr class="empty-row">
+            <td colspan="3">Loading whitelist...</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
 
   <script src="./block.ts" type="module"></script>
 </body>
