@@ -89,6 +89,9 @@
       transform-origin: bottom center;
       border-radius: 4px;
       transform: translateX(-50%) rotate(0deg);
+    }
+    
+    .analog-timer.ticking .hand {
       transition: transform 0.1s cubic-bezier(0.4, 2.08, 0.55, 0.44); /* Bouncy tick effect */
     }
 
@@ -111,8 +114,6 @@
       height: 45%;
       background: #e74c3c; /* Red color for seconds */
       border-radius: 2px;
-      /* Remove transition from seconds to prevent weird 360 -> 0 flip issues if not handled */
-      transition: none;
     }
 
     .center-dot {

@@ -49,24 +49,56 @@ async function startBlockTimer() {
   // We still want to ensure blocking session started is tracked, even if we show current time
   await ensureBlockingSessionStarted();
 
+  let secondsRotationBase = 0;
+  let minutesRotationBase = 0;
+  let hoursRotationBase = 0;
+  let initialized = false;
+
   const updateTimer = () => {
     const now = new Date();
     
-    const seconds = now.getSeconds();
-    const secondsDegrees = seconds * 6;
-    
-    const minutes = now.getMinutes();
-    const minutesDegrees = (minutes * 6) + (seconds / 60) * 6;
-    
-    const hours = now.getHours();
-    const hoursDegrees = ((hours % 12) * 30) + (minutes / 60) * 30;
+    // Normal single-circle degrees
+    const currentSecondsDegrees = now.getSeconds() * 6;
+    const currentMinutesDegrees = now.getMinutes() * 6 + (now.getSeconds() / 60) * 6;
+    const currentHoursDegrees = ((now.getHours() % 12) * 30) + (now.getMinutes() / 60) * 30;
 
-    secondHand.style.transform = `translateX(-50%) rotate(${secondsDegrees}deg)`;
-    minuteHand.style.transform = `translateX(-50%) rotate(${minutesDegrees}deg)`;
-    hourHand.style.transform = `translateX(-50%) rotate(${hoursDegrees}deg)`;
+    if (!initialized) {
+      secondsRotationBase = currentSecondsDegrees;
+      minutesRotationBase = currentMinutesDegrees;
+      hoursRotationBase = currentHoursDegrees;
+      initialized = true;
+    }
+
+    // Determine current base rotation by rounding down existing base
+    const secBase = Math.floor(secondsRotationBase / 360) * 360;
+    const minBase = Math.floor(minutesRotationBase / 360) * 360;
+    const hrBase = Math.floor(hoursRotationBase / 360) * 360;
+
+    let targetSecondsDegrees = secBase + currentSecondsDegrees;
+    let targetMinutesDegrees = minBase + currentMinutesDegrees;
+    let targetHoursDegrees = hrBase + currentHoursDegrees;
+
+    // Avoid backwards wrap-around
+    if (targetSecondsDegrees < secondsRotationBase - 180) targetSecondsDegrees += 360;
+    if (targetMinutesDegrees < minutesRotationBase - 180) targetMinutesDegrees += 360;
+    if (targetHoursDegrees < hoursRotationBase - 180) targetHoursDegrees += 360;
+
+    secondsRotationBase = targetSecondsDegrees;
+    minutesRotationBase = targetMinutesDegrees;
+    hoursRotationBase = targetHoursDegrees;
+
+    secondHand.style.transform = `translateX(-50%) rotate(${secondsRotationBase}deg)`;
+    minuteHand.style.transform = `translateX(-50%) rotate(${minutesRotationBase}deg)`;
+    hourHand.style.transform = `translateX(-50%) rotate(${hoursRotationBase}deg)`;
   };
 
   updateTimer();
+  
+  // Wait a moment for initial styles to paint, then enable transitions
+  setTimeout(() => {
+    analogTimer.classList.add('ticking');
+  }, 50);
+
   setInterval(updateTimer, 1000);
 }
 
