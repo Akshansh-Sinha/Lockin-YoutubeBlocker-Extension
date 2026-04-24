@@ -311,16 +311,32 @@ function activateDOMFilter(whitelist: Whitelist, override?: OverrideState) {
   // Check the initial URL on page load
   enforceFilteredModeNavigation();
 
-  // First pass on existing DOM
+  // First pass on existing DOM — synchronous.
+  // The flicker guard (if injected by init()) is removed here, after the
+  // initial filter pass, so the already-filtered content is revealed cleanly.
   filterAllTiles(whitelist, override);
+  removeFlickerGuard(); // Gate OFF after initial filter pass
+
+  // ── SPA navigation gate ────────────────────────────────────────────────────
+  // YouTube fires yt-navigate-start before it renders the new page's content,
+  // and yt-navigate-finish after. We gate on start → filter on finish → reveal.
+  // This ensures zero flash of unfiltered content during SPA transitions.
+  window.addEventListener('yt-navigate-start', () => {
+    // Gate ON — hide content before YouTube renders the new page.
+    console.debug('[Lockin] Gate ON (yt-navigate-start)');
+    injectFlickerGuard();
+  });
 
   // Hook into YouTube's SPA navigation events
   window.addEventListener('yt-navigate-finish', () => {
     enforceFilteredModeNavigation();
 
-    // Re-fetch storage just in case it changed during the session
+    // Re-fetch storage in case whitelist/override changed during the session
     getStorage().then(({ whitelist: newWhitelist, override: newOverride }) => {
       filterAllTiles(newWhitelist, newOverride);
+      // Gate OFF — filter complete, filtered content is now safe to reveal.
+      console.debug('[Lockin] Gate OFF (yt-navigate-finish)');
+      removeFlickerGuard();
     });
   });
 
@@ -362,28 +378,35 @@ function setupHistoryListener(): void {
   const originalReplaceState = window.history.replaceState;
 
   window.history.pushState = function (state: unknown, unused: string, url?: string | URL | null) {
-    const result = originalPushState.call(this, state, unused, url);
-
     if (url) {
       const urlString = url instanceof URL ? url.href : String(url);
       const fullUrl = new URL(urlString, window.location.href).toString();
 
       if (fullUrl.includes('youtube.com')) {
+        // Gate ON BEFORE the pushState so content is hidden during the round-trip.
+        // If the verdict is 'allow', checkAndDecideUrl removes it.
+        // If 'block', we back() and redirect (guard stays).
+        console.debug('[Lockin] Gate ON (pushState intercept)');
+        injectFlickerGuard();
+
         checkAndDecideUrl(fullUrl).then((decision) => {
           if (decision.action === 'block') {
+            removeFlickerGuard(); // clear before back()
             window.history.back();
             setTimeout(() => {
               const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}`;
               window.location.href = blockUrl;
             }, 50);
           }
+          // allow: checkAndDecideUrl already called removeFlickerGuard()
         }).catch((error) => {
           console.error('[Lockin] Error during checkAndDecideUrl:', error);
+          // Fail-open: 800ms failsafe will remove the guard
         });
       }
     }
 
-    return result;
+    return originalPushState.call(this, state, unused, url);
   };
 
   window.history.replaceState = function (state: unknown, unused: string, url?: string | URL | null) {
@@ -392,10 +415,16 @@ function setupHistoryListener(): void {
       const fullUrl = new URL(urlString, window.location.href).toString();
 
       if (fullUrl.includes('youtube.com')) {
+        // Gate ON before verdict — same rationale as pushState.
+        console.debug('[Lockin] Gate ON (replaceState intercept)');
+        injectFlickerGuard();
+
         checkAndDecideUrl(fullUrl).then((decision) => {
           if (decision.action === 'allow') {
             originalReplaceState.call(this, state, unused, url);
+            // guard removed inside checkAndDecideUrl
           } else {
+            removeFlickerGuard(); // clear before redirect
             const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}`;
             window.location.href = blockUrl;
           }
@@ -500,7 +529,16 @@ async function init(): Promise<void> {
       setupHistoryListener();
     }
   } else {
+    // ── Filtered mode ────────────────────────────────────────────────────────
+    // Gate ON immediately — hides ytd-app while the first DOM filter pass runs.
+    // The gate is removed synchronously inside activateDOMFilter() after the
+    // initial filterAllTiles() call completes.
+    // The 800ms failsafe inside injectFlickerGuard() ensures the page never
+    // stays invisible if filterAllTiles throws or takes too long.
+    console.debug('[Lockin] Gate ON (filtered mode init)');
+    injectFlickerGuard();
     activateDOMFilter(whitelist, override);
+    // Gate OFF is called inside activateDOMFilter after the first filter pass.
   }
 
   chrome.storage.onChanged.addListener(async () => {
