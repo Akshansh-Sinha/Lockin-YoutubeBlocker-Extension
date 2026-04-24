@@ -13,11 +13,11 @@ YouTube is packed with extremely valuable educational content, but it's delibera
 **Lockin** is a purpose-built Chrome Extension designed to take back your attention. Instead of completely blocking YouTube out of your life, Lockin explicitly disables the general algorithm and forces you to pre-define the exact videos or playlists you are allowed to watch. If a video is not on your whitelist, you simply cannot view it. 
 
 ### ✨ Features
-- **Strict Video Whitelisting**: Only allow explicit educational or necessary videos to play.
-- **Playlist Unlocking**: Whitelist entire playlists securely.
+- **Strict Video Whitelisting**: Only allow explicit educational or necessary videos, playlists, or channels to play.
+- **Dual Modes (Strict vs. Filtered)**: Choose to block the entire website aggressively (Strict), or just block distracting recommendations/shorts while leaving navigation open (Filtered).
+- **Cryptographic Password Lock**: Secure the extension with a custom password. You must enter it to disable blocking or use bypasses, preventing impulsive late-night unlocks.
 - **The Lockscreen**: A beautiful, minimal distraction-free block screen with a live responsive analog clock designed to anchor you back to reality.
-- **Typing Challenge**: To disable blocking, you must type *"I have completed my studies"* — preventing impulsive unlocks.
-- **Temporary Bypasses**: Give yourself a quick 2-min, 5-min, or 10-min bypass when you legitimately need to break focus.
+- **Temporary Bypasses**: Give yourself a quick 2-min, 5-min, or 10-min bypass when you legitimately need to break focus (secured by your password).
 
 ## 📸 Screenshot
 
@@ -29,6 +29,9 @@ YouTube is packed with extremely valuable educational content, but it's delibera
 - **Framework**: Minimal vanilla TypeScript & HTML.
 - **Bundler**: Built with [Vite](https://vitejs.dev/) and powered by `@crxjs/vite-plugin` for seamless hot-reloading in Chrome Extension environments.
 - **Styling**: Hand-crafted CSS engineered for perfect minimal aesthetics.
+- **Testing**: Robust test suite powered by [Vitest](https://vitest.dev/).
+
+> 🧑‍💻 **Developers:** Check out the [Developer Guide](DEVELOPER_GUIDE.md) for an in-depth breakdown of the codebase architecture, decision engine, and how to contribute!
 
 ---
 
@@ -53,6 +56,7 @@ To compile the TypeScript framework and package everything into the static `dist
 ```bash
 npm run build
 ```
+*(To watch for changes during development, you can use `npm run dev`)*
 
 ---
 
@@ -76,22 +80,28 @@ Lockin uses an aggressive default-deny approach: the moment you enable it, **the
 
 To use YouTube intentionally, follow these steps to manage your study sessions effectively:
 
-### 1. Whitelisting Specific Content
-You can whitelist any URL directly from YouTube, whether it is a singular educational video or an entire playlist.
-- Copy the exact YouTube web URL. 
-- Open the Lockin popup from your toolbar.
-- In the **Add link** section, assign a descriptive name (optional) and paste the URL.
-- Once added, that video is officially approved. You can explore your organized whitelist directly beneath the **Videos** and **Playlists** headers. By clicking on them inside the extension, Lockin will safely bypass the block screen and drop you right into the video.
+### 1. Initial Setup
+When you first open the Lockin popup, you will be prompted to set a **Password**. This password acts as your final defense against impulsively turning the blocker off. 
 
-### 2. Temporary Unlocks
+### 2. Whitelisting Specific Content
+You can whitelist any URL directly from YouTube, whether it is a singular educational video, an entire playlist, or an educational channel.
+- Copy the exact YouTube web URL or channel handle (e.g., `@Fireship`).
+- Open the Lockin popup from your toolbar.
+- In the **Add link** section, paste the URL or handle.
+- Once added, that content is officially approved. By clicking on items inside the popup list, Lockin will safely bypass the block screen and drop you right into the video.
+
+### 3. Strict vs. Filtered Mode
+- **Strict Mode:** Blocks EVERYTHING on YouTube except the exact URLs you whitelisted.
+- **Filtered Mode:** Allows you to freely browse YouTube, but ruthlessly deletes/hides all Recommendations, Comments, and Shorts from the screen using CSS injection.
+
+### 4. Temporary Unlocks
 If you genuinely need to explore the platform to research something or take a brief break, use a **Temporary Unlock**.
 - Inside the extension UI, locate the **Temporary unlock** section.
 - Click either **2 min**, **5 min**, or **10 min**. 
-- The entire YouTube website will be functionally unlocked for that strict window. Once the countdown expires, Lockin aggressively rears its head and blocks the site once more.
+- Enter your password to authorize the unlock. The entire YouTube website will be functionally unlocked for that strict window. 
 
-### 3. Overriding & Disabling
+### 5. Overriding & Disabling
 If you are done studying for the day and want to turn Lockin off completely:
 - Hit the red **Disable** button inside the extension popup.
-- You will be prompted to type the exact phrase: **"I have completed my studies"**
-- Submit it to confirm your intent and remove the blockers.
+- Enter your password.
 - You can instantly re-enable the blocker anytime via the **Enable blocking** button!
