@@ -20,6 +20,7 @@ export interface Verdict {
    * TODO(provenance): surface source on block page UI.
    */
   source: 'disabled' | 'override' | 'whitelist' | 'default' | 'error';
+  signals?: string[];
 }
 
 export interface Context {

@@ -357,7 +357,7 @@ function activateDOMFilter(whitelist: Whitelist, override?: OverrideState) {
 
 // ─── Strict mode — History API interception ───────────────────────────────────
 
-async function checkAndDecideUrl(urlString: string): Promise<{ action: 'allow' | 'block'; reason: string }> {
+async function checkAndDecideUrl(urlString: string): Promise<{ action: 'allow' | 'block'; reason: string; source?: string; signals?: string[] }> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
       { type: 'CHECK_AND_DECIDE', url: urlString },
@@ -394,7 +394,7 @@ function setupHistoryListener(): void {
             removeFlickerGuard(); // clear before back()
             window.history.back();
             setTimeout(() => {
-              const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}`;
+              const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}&source=${encodeURIComponent(decision.source || '')}` + (decision.signals ? `&signals=${encodeURIComponent(JSON.stringify(decision.signals))}` : '');
               window.location.href = blockUrl;
             }, 50);
           }
@@ -425,7 +425,7 @@ function setupHistoryListener(): void {
             // guard removed inside checkAndDecideUrl
           } else {
             removeFlickerGuard(); // clear before redirect
-            const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}`;
+            const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(fullUrl)}&reason=${encodeURIComponent(decision.reason)}&source=${encodeURIComponent(decision.source || '')}` + (decision.signals ? `&signals=${encodeURIComponent(JSON.stringify(decision.signals))}` : '');
             window.location.href = blockUrl;
           }
         }).catch((error) => {
@@ -444,7 +444,7 @@ function setupHistoryListener(): void {
       if (decision.action === 'block') {
         window.history.back();
         setTimeout(() => {
-          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(url.toString())}&reason=${encodeURIComponent(decision.reason)}`;
+          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(url.toString())}&reason=${encodeURIComponent(decision.reason)}&source=${encodeURIComponent(decision.source || '')}` + (decision.signals ? `&signals=${encodeURIComponent(JSON.stringify(decision.signals))}` : '');
           window.location.href = blockUrl;
         }, 50);
       }
@@ -482,7 +482,7 @@ function setupHistoryListener(): void {
         // Guard stays up; redirect to block page.
         window.history.back();
         setTimeout(() => {
-          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(url.toString())}&reason=${encodeURIComponent(decision.reason)}`;
+          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(url.toString())}&reason=${encodeURIComponent(decision.reason)}&source=${encodeURIComponent(decision.source || '')}` + (decision.signals ? `&signals=${encodeURIComponent(JSON.stringify(decision.signals))}` : '');
           window.location.href = blockUrl;
         }, 50);
       }
@@ -518,7 +518,7 @@ async function init(): Promise<void> {
       // removeFlickerGuard() once the verdict arrives.
       checkAndDecideUrl(window.location.href).then((decision) => {
         if (decision.action === 'block') {
-          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(window.location.href)}&reason=${encodeURIComponent(decision.reason)}`;
+          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(window.location.href)}&reason=${encodeURIComponent(decision.reason)}&source=${encodeURIComponent(decision.source || '')}` + (decision.signals ? `&signals=${encodeURIComponent(JSON.stringify(decision.signals))}` : '');
           window.location.replace(blockUrl);
         }
         // 'allow' → removeFlickerGuard() already called inside checkAndDecideUrl

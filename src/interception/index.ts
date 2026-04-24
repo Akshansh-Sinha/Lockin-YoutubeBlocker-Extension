@@ -47,7 +47,7 @@ export async function handleNavigation(url: URL): Promise<void> {
     if (verdict.action === 'block' || verdict.action === 'override_required') {
       const encodedUrl = encodeURIComponent(url.toString());
       const encodedReason = encodeURIComponent(verdict.reason);
-      const blockPageUrl = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}`;
+      const blockPageUrl = `${BLOCK_PAGE}?from=${encodedUrl}&reason=${encodedReason}&source=${encodeURIComponent(verdict.source)}` + (verdict.signals ? `&signals=${encodeURIComponent(JSON.stringify(verdict.signals))}` : '');
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {

@@ -133,9 +133,40 @@ async function renderWhitelist() {
 const fromUrl = getQueryParam('from');
 const decodedUrl = fromUrl ? decodeURIComponent(fromUrl) : null;
 const urlText = document.getElementById('urlText');
+const sourceParam = getQueryParam('source');
+const signalsParam = getQueryParam('signals');
 
 if (urlText) {
   urlText.textContent = decodedUrl ? `Blocked: ${decodedUrl}` : '';
+}
+
+// Populate Provenance UI
+const provenanceContainer = document.getElementById('provenanceContainer');
+const provenanceSource = document.getElementById('provenanceSource');
+const provenanceSignals = document.getElementById('provenanceSignals');
+
+if (provenanceContainer && provenanceSource && provenanceSignals) {
+  if (sourceParam) {
+    provenanceContainer.style.display = 'block';
+    provenanceSource.textContent = sourceParam.toUpperCase();
+    
+    if (signalsParam) {
+      try {
+        const signals = JSON.parse(decodeURIComponent(signalsParam));
+        if (Array.isArray(signals) && signals.length > 0) {
+          provenanceSignals.innerHTML = signals.map(sig => `<li>${escapeHtml(sig)}</li>`).join('');
+        } else {
+          provenanceSignals.innerHTML = `<li>No signals provided</li>`;
+        }
+      } catch (e) {
+        console.error('Failed to parse signals:', e);
+        provenanceSignals.innerHTML = `<li>${escapeHtml(signalsParam)}</li>`;
+      }
+    } else {
+      const reasonParam = getQueryParam('reason');
+      provenanceSignals.innerHTML = `<li>${escapeHtml(reasonParam || 'Default deny')}</li>`;
+    }
+  }
 }
 
 startBlockTimer().catch((error) => {

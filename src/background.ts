@@ -69,6 +69,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({
           action: verdict.action,
           reason: verdict.reason,
+          source: verdict.source,
+          signals: verdict.signals,
         });
       })
       .catch((error) => {
