@@ -199,6 +199,29 @@ body {
   color: #a29d92;
 }
 
+.password-wrapper {
+  position: relative;
+  display: block;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
+}
+
+.password-toggle:hover {
+  color: var(--text);
+}
+
+
 .section h3 {
   margin-bottom: 8px;
 }

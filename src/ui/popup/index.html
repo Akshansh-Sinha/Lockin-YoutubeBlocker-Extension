@@ -17,6 +17,19 @@
 
 
 
+    <div id="setupUI" style="display: none; padding-top: 12px;">
+      <div class="section">
+        <h2 style="font-size: 16px; margin-bottom: 8px;">Welcome to Lockin</h2>
+        <p class="setup-description" style="margin-bottom: 16px;">Set a password to secure the blocker. You'll need this to disable blocking or use temporary unlocks.</p>
+        <div class="password-wrapper">
+          <input id="newPasswordInput" type="password" placeholder="New Password" class="input-field" />
+          <button type="button" class="password-toggle" id="toggleNewPassword" aria-label="Toggle password visibility">👁️</button>
+        </div>
+        <button id="savePasswordBtn" class="btn btn-primary btn-full" style="margin-top: 12px;">Save Password & Start</button>
+        <p id="setPasswordStatus" class="challenge-error" style="color: #2ecc71; text-align: center; margin-top: 8px;"></p>
+      </div>
+    </div>
+
     <div id="mainUI" style="display: none;">
 
       <div class="section mode-section">
@@ -91,20 +104,23 @@
         <button id="enableBtn" class="btn btn-preset btn-full" style="display: none;">Enable blocking</button>
         <div id="disableChallenge" class="challenge" style="display: none;">
           <p id="challengeQuestion" class="challenge-question"></p>
-          <input id="challengeAnswer" type="password" placeholder="Password" class="input-field" />
+          <div class="password-wrapper">
+            <input id="challengeAnswer" type="password" placeholder="Password" class="input-field" />
+            <button type="button" class="password-toggle" id="toggleChallengePassword" aria-label="Toggle password visibility">👁️</button>
+          </div>
           <div class="challenge-actions">
             <button id="confirmDisableBtn" class="btn btn-danger">Confirm</button>
             <button id="cancelDisableBtn" class="btn btn-preset">Cancel</button>
           </div>
           <p id="challengeError" class="challenge-error"></p>
+          <button id="forgotPasswordBtn" class="btn" style="background:none; color:var(--muted); font-size:11px; margin-top:12px; width:100%; text-decoration:underline;">Forgot password?</button>
         </div>
-        <div id="setPasswordSection" class="challenge" style="display: none; margin-top: 12px;">
-          <p class="challenge-question">Set a password to secure the blocker</p>
-          <input id="newPasswordInput" type="password" placeholder="New Password" class="input-field" />
-          <div class="challenge-actions" style="margin-top: 8px;">
-            <button id="savePasswordBtn" class="btn btn-small">Save Password</button>
+        <div id="resetConfirmChallenge" class="challenge" style="display: none; border-color: var(--danger);">
+          <p class="challenge-question" style="color: var(--danger);">WARNING: Resetting will delete ALL your whitelisted links, custom names, and settings to prevent cheating. Are you absolutely sure?</p>
+          <div class="challenge-actions">
+            <button id="confirmResetBtn" class="btn btn-danger">Yes, Reset All</button>
+            <button id="cancelResetBtn" class="btn btn-preset">Cancel</button>
           </div>
-          <p id="setPasswordStatus" class="challenge-error" style="color: #2ecc71;"></p>
         </div>
       </div>
     </div>

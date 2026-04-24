@@ -6,7 +6,7 @@
  * If a producer requires >50 lines of setup it's doing too much (split it).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   OverrideProducer,
   ModeProducer,

@@ -216,7 +216,7 @@ export const WhitelistProducer: SignalProducer = {
 // ─── Default Resolver ─────────────────────────────────────────────────────────
 
 export const DefaultResolver: Resolver = {
-  resolve: (signals, input) => {
+  resolve: (signals, _input) => {
     if (signals.includes('override:disabled')) {
       return { action: 'allow', reason: 'Blocking disabled', source: 'disabled', signals };
     }

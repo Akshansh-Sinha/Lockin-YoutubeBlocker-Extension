@@ -67,9 +67,7 @@ async function navigateAfterOverride(): Promise<void> {
   }
 }
 
-function normalizeAnswer(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase();
-}
+
 
 function escapeHtml(value: string): string {
   return value
@@ -135,16 +133,25 @@ async function showMainUI() {
   const confirmDisableBtn = document.getElementById('confirmDisableBtn') as HTMLButtonElement;
   const cancelDisableBtn = document.getElementById('cancelDisableBtn') as HTMLButtonElement;
 
-  const setPasswordSection = document.getElementById('setPasswordSection') as HTMLDivElement;
+  const setupUI = document.getElementById('setupUI') as HTMLDivElement;
   const newPasswordInput = document.getElementById('newPasswordInput') as HTMLInputElement;
   const savePasswordBtn = document.getElementById('savePasswordBtn') as HTMLButtonElement;
   const setPasswordStatus = document.getElementById('setPasswordStatus') as HTMLParagraphElement;
+  const toggleNewPassword = document.getElementById('toggleNewPassword') as HTMLButtonElement;
 
   // Render Set Password section if no password is set
   const storage = await getStorage();
   if (!storage.security.passwordHash) {
-    setPasswordSection.style.display = 'block';
+    setupUI.style.display = 'block';
+    mainUI.style.display = 'none';
+  } else {
+    setupUI.style.display = 'none';
+    mainUI.style.display = 'block';
   }
+
+  toggleNewPassword.addEventListener('click', () => {
+    newPasswordInput.type = newPasswordInput.type === 'password' ? 'text' : 'password';
+  });
 
   savePasswordBtn.addEventListener('click', async () => {
     const pwd = newPasswordInput.value;
@@ -156,13 +163,13 @@ async function showMainUI() {
     const salt = generateSalt();
     const hash = await hashPassword(pwd, salt);
     await setPasswordHash(hash, salt);
-    setPasswordSection.style.display = 'none';
+    
+    // Switch to main UI
+    setupUI.style.display = 'none';
+    mainUI.style.display = 'block';
+    
     newPasswordInput.value = '';
-    setPasswordStatus.style.color = '#2ecc71';
-    setPasswordStatus.textContent = 'Password saved securely!';
-    setTimeout(() => {
-      setPasswordStatus.textContent = '';
-    }, 3000);
+    setPasswordStatus.textContent = '';
   });
 
   // ── URL detection feedback ────────────────────────────────────────────────────
@@ -350,6 +357,34 @@ async function showMainUI() {
   });
 
   cancelDisableBtn.addEventListener('click', hideDisableChallenge);
+
+  const toggleChallengePassword = document.getElementById('toggleChallengePassword') as HTMLButtonElement;
+  const challengeAnswer = document.getElementById('challengeAnswer') as HTMLInputElement;
+  toggleChallengePassword.addEventListener('click', () => {
+    challengeAnswer.type = challengeAnswer.type === 'password' ? 'text' : 'password';
+  });
+
+  const forgotPasswordBtn = document.getElementById('forgotPasswordBtn') as HTMLButtonElement;
+  const resetConfirmChallenge = document.getElementById('resetConfirmChallenge') as HTMLDivElement;
+  const confirmResetBtn = document.getElementById('confirmResetBtn') as HTMLButtonElement;
+  const cancelResetBtn = document.getElementById('cancelResetBtn') as HTMLButtonElement;
+
+  forgotPasswordBtn.addEventListener('click', () => {
+    document.getElementById('disableChallenge')!.style.display = 'none';
+    resetConfirmChallenge.style.display = 'block';
+  });
+
+  cancelResetBtn.addEventListener('click', () => {
+    resetConfirmChallenge.style.display = 'none';
+    document.getElementById('disableChallenge')!.style.display = 'block';
+  });
+
+  confirmResetBtn.addEventListener('click', async () => {
+    await chrome.storage.local.clear();
+    await chrome.storage.sync.clear();
+    // Re-initialize completely
+    window.location.reload();
+  });
 
   updateUnlockStatus();
   setInterval(updateUnlockStatus, 1000);
