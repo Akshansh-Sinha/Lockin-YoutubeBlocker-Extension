@@ -1,16 +1,8 @@
-import type { StorageSchema } from '@/storage/types';
+/**
+ * @deprecated Import from '@/core/engine' directly.
+ * This file exists only for backward compatibility and will be removed.
+ */
+export type { Verdict, Action } from '@/core/engine';
 
-export interface Verdict {
-  action: 'allow' | 'block' | 'override_required';
-  reason: string;
-}
-
-export interface Context {
-  url: URL;
-  now: number;
-  override: StorageSchema['override'];
-  settings: StorageSchema['settings'];
-  whitelist: StorageSchema['whitelist'];
-}
-
-export type Rule = (ctx: Context) => Verdict | null;
+// Rule type is intentionally not re-exported — the rule-chain pattern is removed.
+// See core/engine.ts decide() for the replacement.

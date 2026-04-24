@@ -270,6 +270,40 @@ function injectGlobalStyles() {
   (document.head || document.documentElement).appendChild(style);
 }
 
+// ─── Strict mode — Flicker guard ──────────────────────────────────────────────
+// Hides the YouTube video player immediately while the SW verdict round-trip
+// completes. Critically: has an 800ms hard failsafe so the page never stays
+// invisible forever if the SW is evicted or the message is dropped.
+// Fail-open on paint is correct — fail-closed is the decision engine's job.
+
+let flickerGuardTimer: ReturnType<typeof setTimeout> | null = null;
+
+function injectFlickerGuard(): void {
+  if (document.getElementById('lockin-gate')) return;
+  const style = document.createElement('style');
+  style.id = 'lockin-gate';
+  // Hide the main player and app shell during verdict round-trip.
+  // Using visibility:hidden (not display:none) so layout doesn't reflow
+  // when the guard is removed — smoother reveal.
+  style.textContent = 'ytd-watch-flexy, ytd-app { visibility: hidden !important; }';
+  (document.head || document.documentElement).appendChild(style);
+
+  // Hard failsafe: remove the gate after 800ms even if no verdict arrives.
+  // This prevents an invisible page if the SW is evicted or message is dropped.
+  flickerGuardTimer = setTimeout(() => {
+    removeFlickerGuard();
+    console.warn('[Lockin] Flicker guard failsafe triggered (800ms) — removing gate. SW may be evicted.');
+  }, 800);
+}
+
+function removeFlickerGuard(): void {
+  if (flickerGuardTimer !== null) {
+    clearTimeout(flickerGuardTimer);
+    flickerGuardTimer = null;
+  }
+  document.getElementById('lockin-gate')?.remove();
+}
+
 function activateDOMFilter(whitelist: Whitelist, override?: OverrideState) {
   // Inject CSS for guaranteed absolute hiding of Shorts
   injectGlobalStyles();
@@ -312,7 +346,12 @@ async function checkAndDecideUrl(urlString: string): Promise<{ action: 'allow' |
     chrome.runtime.sendMessage(
       { type: 'CHECK_AND_DECIDE', url: urlString },
       (response) => {
-        resolve(response || { action: 'allow', reason: 'Default allow' });
+        const result = response || { action: 'allow', reason: 'Default allow' };
+        // If allowed, remove the flicker guard so the page becomes visible.
+        if (result.action === 'allow') {
+          removeFlickerGuard();
+        }
+        resolve(result);
       }
     );
   });
@@ -384,6 +423,46 @@ function setupHistoryListener(): void {
       console.error('[Lockin] Error during popstate check:', error);
     });
   });
+
+  // ── bfcache restore (back-forward navigation) ──────────────────────────────
+  // `pageshow` fires when a page is restored from the browser's back-forward
+  // cache. `onBeforeNavigate` does NOT fire for bfcache restores, so without
+  // this listener the user could navigate back to a blocked video and see it.
+  //
+  // Critical ordering:
+  //   1. Re-apply the flicker guard SYNCHRONOUSLY (before the SW round-trip)
+  //      so the video player is hidden during the latency window.
+  //   2. Send the verdict request.
+  //   3. Remove the guard only when verdict returns 'allow'.
+  //      If verdict returns 'block', redirect to block page (guard stays).
+  //
+  // The 800ms hard failsafe inside injectFlickerGuard() ensures the page
+  // never stays invisible if the SW is evicted or the message is dropped.
+  window.addEventListener('pageshow', (event: PageTransitionEvent) => {
+    // event.persisted === true means this is a bfcache restore, not initial load.
+    // On initial load the normal bootstrap already handles interception.
+    if (!event.persisted) return;
+
+    // Step 1: gate immediately — synchronous, before any async work.
+    injectFlickerGuard();
+
+    // Step 2 & 3: check verdict, redirect or reveal.
+    const url = new URL(window.location.href);
+    checkAndDecideUrl(url.toString()).then((decision) => {
+      if (decision.action === 'block') {
+        // Guard stays up; redirect to block page.
+        window.history.back();
+        setTimeout(() => {
+          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(url.toString())}&reason=${encodeURIComponent(decision.reason)}`;
+          window.location.href = blockUrl;
+        }, 50);
+      }
+      // 'allow' case: checkAndDecideUrl already called removeFlickerGuard()
+    }).catch((error) => {
+      console.error('[Lockin] Error during bfcache pageshow check:', error);
+      // Fail-open on error — guard failsafe will remove it at 800ms.
+    });
+  });
 }
 
 // ─── Startup ──────────────────────────────────────────────────────────────────
@@ -396,13 +475,28 @@ async function init(): Promise<void> {
   bootedMode = mode;
 
   if (mode === 'strict') {
-    // Only intercept navigation if override is NOT active.
-    // If the user has disabled blocking or set a temp unlock, YouTube should run freely.
     const overrideIsActive =
       override.disabled ||
       (override.activeUntil !== null && Date.now() < override.activeUntil);
 
     if (!overrideIsActive) {
+      // Inject the flicker guard immediately so the player is hidden while
+      // the initial SW verdict round-trip completes. The 800ms failsafe
+      // inside injectFlickerGuard() ensures we never leave the page invisible.
+      injectFlickerGuard();
+
+      // Check the initial page URL on load. checkAndDecideUrl will call
+      // removeFlickerGuard() once the verdict arrives.
+      checkAndDecideUrl(window.location.href).then((decision) => {
+        if (decision.action === 'block') {
+          const blockUrl = `${BLOCK_PAGE}?from=${encodeURIComponent(window.location.href)}&reason=${encodeURIComponent(decision.reason)}`;
+          window.location.replace(blockUrl);
+        }
+        // 'allow' → removeFlickerGuard() already called inside checkAndDecideUrl
+      }).catch(() => {
+        // Fail-open: guard failsafe will remove it at 800ms
+      });
+
       setupHistoryListener();
     }
   } else {

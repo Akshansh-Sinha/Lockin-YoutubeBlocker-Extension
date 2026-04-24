@@ -1,3 +1,5 @@
+import { extractContext } from '@/core/engine';
+
 export interface RouteClassification {
   type: 'video' | 'playlist' | 'home' | 'search' | 'shorts' | 'unknown';
   id: string | null;
@@ -49,33 +51,19 @@ export function classifyRoute(url: URL): RouteClassification {
   return { type: 'unknown', id: null };
 }
 
+/**
+ * Extract the YouTube video ID from any YouTube URL string.
+ * Delegates to extractContext — single source of truth for URL parsing.
+ * Handles youtu.be shortlinks, /watch?v=, and /shorts/ paths.
+ */
 export function extractVideoIdFromUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url, 'https://youtube.com');
-    if (urlObj.searchParams.has('v')) {
-      return urlObj.searchParams.get('v');
-    }
-    // youtu.be shortlinks
-    if (urlObj.hostname === 'youtu.be') {
-      // Extract just the video ID, ignoring any query parameters
-      // youtu.be/VIDEO_ID or youtu.be/VIDEO_ID?list=... → just VIDEO_ID
-      const videoId = urlObj.pathname.slice(1).split('/')[0];
-      return videoId || null;
-    }
-  } catch {
-    // invalid URL
-  }
-  return null;
+  return extractContext(url).videoId;
 }
 
+/**
+ * Extract the YouTube playlist ID from any YouTube URL string.
+ * Delegates to extractContext — single source of truth for URL parsing.
+ */
 export function extractPlaylistIdFromUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url, 'https://youtube.com');
-    if (urlObj.searchParams.has('list')) {
-      return urlObj.searchParams.get('list');
-    }
-  } catch {
-    // invalid URL
-  }
-  return null;
+  return extractContext(url).playlistId;
 }
