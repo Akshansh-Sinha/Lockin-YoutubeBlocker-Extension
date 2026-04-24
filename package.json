@@ -8,10 +8,12 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:canary": "playwright test tests/canary/"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0",
+    "@playwright/test": "^1.44.0",
     "@types/chrome": "^0.0.280",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
