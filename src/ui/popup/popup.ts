@@ -8,6 +8,7 @@ import {
   setPlaylistWhitelistName,
   setOverrideExpiry,
   setBlockingDisabled,
+  setPasswordHash,
   addChannelToWhitelist,
   removeChannelFromWhitelist,
   setMode,
@@ -16,9 +17,9 @@ import { extractVideoIdFromUrl, extractPlaylistIdFromUrl } from '@/interception/
 import { extractContext } from '@/core/engine';
 import type { WhitelistItem, Mode } from '@/storage/types';
 import { buildYouTubeUrl, fetchYouTubeTitle } from '@/youtube/metadata';
+import { generateSalt, hashPassword, verifyPassword } from '@/core/crypto';
 
 let isHydratingNames = false;
-const DISABLE_CHALLENGE_ANSWER = 'i have completed my studies';
 
 const BLOCK_PAGE_URL = chrome.runtime.getURL('src/ui/block/index.html');
 
@@ -134,6 +135,36 @@ async function showMainUI() {
   const confirmDisableBtn = document.getElementById('confirmDisableBtn') as HTMLButtonElement;
   const cancelDisableBtn = document.getElementById('cancelDisableBtn') as HTMLButtonElement;
 
+  const setPasswordSection = document.getElementById('setPasswordSection') as HTMLDivElement;
+  const newPasswordInput = document.getElementById('newPasswordInput') as HTMLInputElement;
+  const savePasswordBtn = document.getElementById('savePasswordBtn') as HTMLButtonElement;
+  const setPasswordStatus = document.getElementById('setPasswordStatus') as HTMLParagraphElement;
+
+  // Render Set Password section if no password is set
+  const storage = await getStorage();
+  if (!storage.security.passwordHash) {
+    setPasswordSection.style.display = 'block';
+  }
+
+  savePasswordBtn.addEventListener('click', async () => {
+    const pwd = newPasswordInput.value;
+    if (pwd.length < 4) {
+      setPasswordStatus.style.color = '#e74c3c';
+      setPasswordStatus.textContent = 'Password must be at least 4 characters.';
+      return;
+    }
+    const salt = generateSalt();
+    const hash = await hashPassword(pwd, salt);
+    await setPasswordHash(hash, salt);
+    setPasswordSection.style.display = 'none';
+    newPasswordInput.value = '';
+    setPasswordStatus.style.color = '#2ecc71';
+    setPasswordStatus.textContent = 'Password saved securely!';
+    setTimeout(() => {
+      setPasswordStatus.textContent = '';
+    }, 3000);
+  });
+
   // ── URL detection feedback ────────────────────────────────────────────────────
   const urlDetectionHint = document.createElement('p');
   urlDetectionHint.className = 'url-detection-hint';
@@ -248,19 +279,51 @@ async function showMainUI() {
       const minutes = minutesStr ? parseInt(minutesStr, 10) : 10;
       const unlockUntil = Date.now() + minutes * 60 * 1000;
 
-      await setOverrideExpiry(unlockUntil);
-      updateUnlockStatus();
-      // Reload YouTube so the override takes effect immediately (no more blocking).
-      await navigateAfterOverride();
+      const storage = await getStorage();
+      if (storage.security.passwordHash) {
+        // Must provide password to unlock if set
+        await showDisableChallenge(async () => {
+          await setOverrideExpiry(unlockUntil);
+          updateUnlockStatus();
+          await navigateAfterOverride();
+        });
+      } else {
+        await setOverrideExpiry(unlockUntil);
+        updateUnlockStatus();
+        await navigateAfterOverride();
+      }
     });
   });
 
   disableBtn.addEventListener('click', async () => {
     const challenge = document.getElementById('disableChallenge') as HTMLDivElement;
     if (challenge.style.display === 'block') {
-      await confirmDisable();
+      const pendingCb = (window as any)._pendingDisableCb;
+      if (pendingCb) {
+        await confirmDisable(pendingCb);
+      } else {
+        await confirmDisable(async () => {
+          await setBlockingDisabled(true);
+          hideDisableChallenge();
+          updateUnlockStatus();
+          await navigateAfterOverride();
+        });
+      }
     } else {
-      await showDisableChallenge();
+      const storage = await getStorage();
+      if (!storage.security.passwordHash) {
+        // No password set, just disable directly
+        await setBlockingDisabled(true);
+        updateUnlockStatus();
+        await navigateAfterOverride();
+      } else {
+        await showDisableChallenge(async () => {
+          await setBlockingDisabled(true);
+          hideDisableChallenge();
+          updateUnlockStatus();
+          await navigateAfterOverride();
+        });
+      }
     }
   });
 
@@ -272,7 +335,19 @@ async function showMainUI() {
     await navigateAfterOverride();
   });
 
-  confirmDisableBtn.addEventListener('click', confirmDisable);
+  confirmDisableBtn.addEventListener('click', async () => {
+    const pendingCb = (window as any)._pendingDisableCb;
+    if (pendingCb) {
+      await confirmDisable(pendingCb);
+    } else {
+      await confirmDisable(async () => {
+        await setBlockingDisabled(true);
+        hideDisableChallenge();
+        updateUnlockStatus();
+        await navigateAfterOverride();
+      });
+    }
+  });
 
   cancelDisableBtn.addEventListener('click', hideDisableChallenge);
 
@@ -280,37 +355,44 @@ async function showMainUI() {
   setInterval(updateUnlockStatus, 1000);
 }
 
-async function showDisableChallenge() {
+async function showDisableChallenge(onSuccess: () => Promise<void>) {
   const challenge = document.getElementById('disableChallenge') as HTMLDivElement;
   const question = document.getElementById('challengeQuestion') as HTMLElement;
   const answerInput = document.getElementById('challengeAnswer') as HTMLInputElement;
   const error = document.getElementById('challengeError') as HTMLElement;
 
-  answerInput.type = 'text';
+  answerInput.type = 'password';
   answerInput.value = '';
   error.textContent = '';
 
-  question.textContent = 'Type "I have completed my studies" to disable blocking.';
+  question.textContent = 'Enter your password to unlock:';
+
+  // Store the callback so confirmDisable knows what to do on success
+  (window as any)._pendingDisableCb = onSuccess;
 
   challenge.style.display = 'block';
   answerInput.focus();
 }
 
-async function confirmDisable() {
+async function confirmDisable(onSuccess: () => Promise<void>) {
   const answerInput = document.getElementById('challengeAnswer') as HTMLInputElement;
   const error = document.getElementById('challengeError') as HTMLElement;
-  const answer = normalizeAnswer(answerInput.value);
+  const password = answerInput.value;
 
-  if (answer !== DISABLE_CHALLENGE_ANSWER) {
-    error.textContent = 'Type the exact phrase to disable blocking.';
-    return;
+  const storage = await getStorage();
+  if (storage.security.passwordHash && storage.security.salt) {
+    const isValid = await verifyPassword(password, storage.security.passwordHash, storage.security.salt);
+    if (!isValid) {
+      error.textContent = 'Incorrect password.';
+      return;
+    }
   }
 
-  await setBlockingDisabled(true);
+  // Clear callback
+  (window as any)._pendingDisableCb = null;
+
   hideDisableChallenge();
-  updateUnlockStatus();
-  // Reload YouTube so blocking stops immediately.
-  await navigateAfterOverride();
+  await onSuccess();
 }
 
 function hideDisableChallenge() {
@@ -321,6 +403,7 @@ function hideDisableChallenge() {
   answerInput.value = '';
   error.textContent = '';
   challenge.style.display = 'none';
+  (window as any)._pendingDisableCb = null;
 }
 
 async function updateWhitelists() {

@@ -1,4 +1,4 @@
-import type { StorageSchema, Whitelist, WhitelistItem, Mode } from './types';
+import type { StorageSchema, Whitelist, WhitelistItem, Mode, OverrideState } from './types';
 import { getDefaults } from './migrations';
 
 // ─── Storage backend — sync with local fallback ────────────────────────────────
@@ -68,7 +68,12 @@ function normalizeWhitelist(whitelist: LegacyWhitelist | undefined, fallback: Wh
 
 export async function getStorage(): Promise<StorageSchema> {
   const data = await storageGet(null);
-  const stored = data as Partial<Omit<StorageSchema, 'whitelist'>> & { whitelist?: LegacyWhitelist };
+  
+  // Read override explicitly from local storage
+  const localData = await chrome.storage.local.get(['override']);
+  const localOverride = localData.override as Partial<OverrideState> | undefined;
+
+  const stored = data as Partial<Omit<StorageSchema, 'whitelist' | 'override'>> & { whitelist?: LegacyWhitelist };
 
   const schema = getDefaults();
   return {
@@ -79,14 +84,21 @@ export async function getStorage(): Promise<StorageSchema> {
     security: stored.security ?? schema.security,
     override: {
       ...schema.override,
-      ...stored.override,
+      ...localOverride, // use local override
     },
     rateLimit: stored.rateLimit ?? schema.rateLimit,
   };
 }
 
 export async function setStorage(schema: StorageSchema): Promise<void> {
-  await storageSet(schema);
+  // Extract override
+  const { override, ...rest } = schema;
+  
+  // Save everything else to sync (with fallback)
+  await storageSet(rest);
+  
+  // Save override exclusively to local
+  await chrome.storage.local.set({ override });
 }
 
 export async function addVideoToWhitelist(videoId: string, name?: string): Promise<void> {

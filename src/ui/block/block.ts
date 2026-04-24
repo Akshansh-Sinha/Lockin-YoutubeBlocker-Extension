@@ -140,6 +140,12 @@ if (urlText) {
   urlText.textContent = decodedUrl ? `Blocked: ${decodedUrl}` : '';
 }
 
+const reasonParam = getQueryParam('reason');
+const blockReason = document.getElementById('blockReason');
+if (blockReason && reasonParam) {
+  blockReason.textContent = `Reason: ${decodeURIComponent(reasonParam)}`;
+}
+
 // Log Provenance trace to developer console instead of showing to the user
 if (sourceParam) {
   console.group('%c[Lockin] Decision Trace', 'color: #d8d0bd; font-weight: bold;');

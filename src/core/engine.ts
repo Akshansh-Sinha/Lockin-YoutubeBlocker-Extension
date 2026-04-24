@@ -16,8 +16,7 @@ export interface Verdict {
   action: Action;
   reason: string;
   /**
-   * Which check produced this verdict. Logged to console for debugging.
-   * TODO(provenance): surface source on block page UI.
+   * Which check produced this verdict. Shown on block page UI and logged to console.
    */
   source: 'disabled' | 'override' | 'whitelist' | 'default' | 'error';
   signals?: string[];
@@ -111,11 +110,18 @@ export function extractContext(url: string): Context {
 
   // ── youtube.com/* ─────────────────────────────────────────────────────────
   const isShort = pathname.startsWith('/shorts/');
+  const isEmbed = pathname.startsWith('/embed/');
+  const isLive = pathname.startsWith('/live/');
+  const isTv = pathname.startsWith('/tv');
 
   // Video ID
   let videoId: string | null = null;
   if (isShort) {
     videoId = pathname.split('/')[2] ?? null;
+  } else if (isEmbed || isLive) {
+    // /embed/VIDEO_ID or /live/VIDEO_ID
+    const seg = pathname.split('/')[2];
+    videoId = seg && /^[A-Za-z0-9_-]{6,}$/.test(seg) ? seg : null;
   } else if (pathname === '/watch' || pathname.startsWith('/watch?')) {
     videoId = params.get('v');
   }
@@ -126,7 +132,7 @@ export function extractContext(url: string): Context {
 
   // Channel ID — URL only; not derivable from /shorts/ or youtu.be URLs
   let channelId: string | null = null;
-  if (!isShort) {
+  if (!isShort && !isEmbed && !isLive && !isTv) {
     const ucid = CHANNEL_UCID_RE.exec(pathname);
     if (ucid) {
       channelId = ucid[1];
@@ -136,6 +142,8 @@ export function extractContext(url: string): Context {
     }
   }
 
+  // NOTE: If it's `/tv`, we deliberately leave everything null so the default-deny
+  // catches it in Strict Mode (since we can't reliably filter the leanback UI).
   return { videoId, playlistId, channelId, isShort, url };
 }
 
@@ -161,49 +169,105 @@ export function isWhitelisted(ctx: Context, wl: Whitelist): boolean {
   return false;
 }
 
+// ─── Registry Pattern Interfaces ──────────────────────────────────────────────
+
+export type Signal = string;
+
+export interface SignalProducer {
+  name: string;
+  produce(input: DecisionInput): Promise<Signal[]> | Signal[];
+}
+
+export interface Resolver {
+  resolve(signals: Signal[], input: DecisionInput): Verdict;
+}
+
+// ─── Default Producers ────────────────────────────────────────────────────────
+import { KeywordProducer } from '@/decision/producers/keyword';
+
+export const OverrideProducer: SignalProducer = {
+  name: 'override',
+  produce: (input) => {
+    const { override, now } = input;
+    if (override.disabled) return ['override:disabled'];
+    if (override.activeUntil !== null && now < override.activeUntil) return ['override:active'];
+    return [];
+  }
+};
+
+export const ModeProducer: SignalProducer = {
+  name: 'mode',
+  produce: (input) => {
+    return [`mode:${input.mode}`];
+  }
+};
+
+export const WhitelistProducer: SignalProducer = {
+  name: 'whitelist',
+  produce: (input) => {
+    const signals: Signal[] = [];
+    if (isWhitelisted(input.ctx, input.whitelist)) {
+      signals.push('whitelist:match');
+    }
+    return signals;
+  }
+};
+
+// ─── Default Resolver ─────────────────────────────────────────────────────────
+
+export const DefaultResolver: Resolver = {
+  resolve: (signals, input) => {
+    if (signals.includes('override:disabled')) {
+      return { action: 'allow', reason: 'Blocking disabled', source: 'disabled', signals };
+    }
+    if (signals.includes('override:active')) {
+      return { action: 'allow', reason: 'Override active', source: 'override', signals };
+    }
+    
+    // Explicit whitelist overrides any block keyword
+    if (signals.includes('mode:strict') && signals.includes('whitelist:match')) {
+      return { action: 'allow', reason: 'Whitelisted', source: 'whitelist', signals };
+    }
+
+    // Keyword block overrides allowed keywords or filtered mode
+    const blockKeywordMatch = signals.find(s => s.startsWith('keyword:block:'));
+    if (blockKeywordMatch) {
+      const kw = blockKeywordMatch.split(':')[2];
+      return { action: 'block', reason: `Contains blocked keyword: "${kw}"`, source: 'default', signals };
+    }
+
+    // Keyword allow overrides strict mode
+    const allowKeywordMatch = signals.find(s => s.startsWith('keyword:allow:'));
+    if (allowKeywordMatch) {
+      const kw = allowKeywordMatch.split(':')[2];
+      return { action: 'allow', reason: `Contains allowed keyword: "${kw}"`, source: 'default', signals };
+    }
+
+    if (signals.includes('mode:filtered')) {
+      return { action: 'allow', reason: 'Filtered mode', source: 'default', signals };
+    }
+    return { action: 'block', reason: 'Default deny', source: 'default', signals };
+  }
+};
+
 // ─── Decision engine ──────────────────────────────────────────────────────────
 
 /**
- * Core decision function — synchronous, pure, fail-closed.
+ * Core decision function — asynchronous, extensible via registry pattern.
  *
- * Takes a pre-built DecisionInput (storage data resolved by the caller) and
- * returns a Verdict synchronously. The async boundary (storage.get) belongs
- * in the interception layer — not here. This keeps the decision logic
- * independently testable without mocking chrome.storage.
- *
- * Order of checks is semantic and intentional:
- *   1. disabled  → always allow (user completed typing challenge)
- *   2. override  → always allow (temp unlock, not yet expired)
- *   3. whitelist → allow if content is explicitly permitted
- *   4. filtered  → allow (DOM filter handles tile visibility separately)
- *   5. default   → block (fail-closed)
+ * Runs all producers concurrently, collects signals, and resolves them to a Verdict.
  */
-export function decide(input: DecisionInput): Verdict {
+export async function decide(
+  input: DecisionInput,
+  producers: SignalProducer[] = [OverrideProducer, ModeProducer, WhitelistProducer, KeywordProducer],
+  resolver: Resolver = DefaultResolver
+): Promise<Verdict> {
   try {
-    const { ctx, whitelist, override, mode, now } = input;
+    const signalPromises = producers.map((p) => p.produce(input));
+    const nestedSignals = await Promise.all(signalPromises);
+    const signals = nestedSignals.flat();
 
-    // 1. Blocking fully disabled by user
-    if (override.disabled) {
-      return { action: 'allow', reason: 'Blocking disabled', source: 'disabled' };
-    }
-
-    // 2. Temporary unlock — active and not yet expired
-    if (override.activeUntil !== null && now < override.activeUntil) {
-      return { action: 'allow', reason: 'Override active', source: 'override' };
-    }
-
-    // 3. Whitelist check (strict mode only)
-    if (mode === 'strict' && isWhitelisted(ctx, whitelist)) {
-      return { action: 'allow', reason: 'Whitelisted', source: 'whitelist' };
-    }
-
-    // 4. Filtered mode — navigation never blocked; content script gates DOM tiles
-    if (mode === 'filtered') {
-      return { action: 'allow', reason: 'Filtered mode', source: 'default' };
-    }
-
-    // 5. Default deny (fail-closed)
-    return { action: 'block', reason: 'Default deny', source: 'default' };
+    return resolver.resolve(signals, input);
   } catch (err) {
     console.error('[Lockin] decide() threw:', err);
     return { action: 'block', reason: 'Internal error', source: 'error' };

@@ -1,5 +1,6 @@
-import { extractContext, decide } from '@/core/engine';
+import { extractContext, decide, OverrideProducer, ModeProducer, WhitelistProducer, DefaultResolver } from '@/core/engine';
 import type { Verdict, DecisionInput } from '@/core/engine';
+import { MetadataProducer } from '@/decision/producers/metadata';
 import { getStorage } from '@/storage/index';
 
 const BLOCK_PAGE = chrome.runtime.getURL('src/ui/block/index.html');
@@ -25,7 +26,12 @@ export async function makeDecision(url: URL): Promise<Verdict> {
       now: Date.now(),
     };
 
-    const verdict = decide(input);
+    const verdict = await decide(input, [
+      OverrideProducer,
+      ModeProducer,
+      WhitelistProducer,
+      MetadataProducer
+    ], DefaultResolver);
 
     // Log full provenance trail for debuggability (Option A — console only for now).
     console.debug(

@@ -91,12 +91,20 @@
         <button id="enableBtn" class="btn btn-preset btn-full" style="display: none;">Enable blocking</button>
         <div id="disableChallenge" class="challenge" style="display: none;">
           <p id="challengeQuestion" class="challenge-question"></p>
-          <input id="challengeAnswer" type="text" placeholder="Answer" class="input-field" />
+          <input id="challengeAnswer" type="password" placeholder="Password" class="input-field" />
           <div class="challenge-actions">
             <button id="confirmDisableBtn" class="btn btn-danger">Confirm</button>
             <button id="cancelDisableBtn" class="btn btn-preset">Cancel</button>
           </div>
           <p id="challengeError" class="challenge-error"></p>
+        </div>
+        <div id="setPasswordSection" class="challenge" style="display: none; margin-top: 12px;">
+          <p class="challenge-question">Set a password to secure the blocker</p>
+          <input id="newPasswordInput" type="password" placeholder="New Password" class="input-field" />
+          <div class="challenge-actions" style="margin-top: 8px;">
+            <button id="savePasswordBtn" class="btn btn-small">Save Password</button>
+          </div>
+          <p id="setPasswordStatus" class="challenge-error" style="color: #2ecc71;"></p>
         </div>
       </div>
     </div>

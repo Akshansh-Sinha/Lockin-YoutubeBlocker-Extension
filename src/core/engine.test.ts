@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractContext, isAllowed, isAllowedStrict, isAllowedFiltered } from './engine';
+import { extractContext, decide, isAllowedFiltered } from './engine';
 import type { Whitelist, OverrideState } from '@/storage/types';
 
 // ─── Helper ────────────────────────────────────────────────────────────────
@@ -62,6 +62,32 @@ describe('extractContext', () => {
     expect(ctx.isShort).toBe(false);
   });
 
+  it('extracts videoId from /embed/ path', () => {
+    const ctx = extractContext('https://www.youtube.com/embed/abc12345');
+    expect(ctx.videoId).toBe('abc12345');
+    expect(ctx.isShort).toBe(false);
+  });
+
+  it('extracts videoId from youtube-nocookie.com/embed/ path', () => {
+    const ctx = extractContext('https://www.youtube-nocookie.com/embed/abc12345');
+    expect(ctx.videoId).toBe('abc12345');
+    expect(ctx.isShort).toBe(false);
+  });
+
+  it('extracts videoId from /live/ path', () => {
+    const ctx = extractContext('https://www.youtube.com/live/xyz12345');
+    expect(ctx.videoId).toBe('xyz12345');
+    expect(ctx.isShort).toBe(false);
+  });
+
+  it('handles /tv by ignoring channel/video ids (causing default deny)', () => {
+    const ctx = extractContext('https://www.youtube.com/tv#/');
+    expect(ctx.videoId).toBeNull();
+    expect(ctx.channelId).toBeNull();
+    expect(ctx.playlistId).toBeNull();
+    expect(ctx.isShort).toBe(false);
+  });
+
   it('returns all-null context for invalid URL without throwing', () => {
     const ctx = extractContext('not-a-url');
     expect(ctx.videoId).toBeNull();
@@ -77,35 +103,6 @@ describe('extractContext', () => {
     expect(ctx.playlistId).toBeNull();
     expect(ctx.channelId).toBeNull();
     expect(ctx.isShort).toBe(false);
-  });
-});
-
-// ─── isAllowedStrict ────────────────────────────────────────────────────────
-
-describe('isAllowedStrict', () => {
-  it('returns true when videoId matches', () => {
-    const ctx = extractContext('https://www.youtube.com/watch?v=abc');
-    expect(isAllowedStrict(ctx, wl({ videos: [{ id: 'abc' }] }))).toBe(true);
-  });
-
-  it('returns true when playlistId matches', () => {
-    const ctx = extractContext('https://www.youtube.com/watch?v=x&list=PLgood');
-    expect(isAllowedStrict(ctx, wl({ playlists: [{ id: 'PLgood' }] }))).toBe(true);
-  });
-
-  it('returns false when channel is whitelisted but no video/playlist — strict ignores channels', () => {
-    const ctx = extractContext('https://www.youtube.com/@mkbhd');
-    expect(isAllowedStrict(ctx, wl({ channels: [{ id: '@mkbhd' }] }))).toBe(false);
-  });
-
-  it('returns false when nothing matches', () => {
-    const ctx = extractContext('https://www.youtube.com/watch?v=blocked');
-    expect(isAllowedStrict(ctx, wl())).toBe(false);
-  });
-
-  it('returns false for home page (no ids)', () => {
-    const ctx = extractContext('https://www.youtube.com/');
-    expect(isAllowedStrict(ctx, wl({ videos: [{ id: 'abc' }] }))).toBe(false);
   });
 });
 
@@ -208,26 +205,62 @@ describe('isAllowedFiltered', () => {
   });
 });
 
-// ─── isAllowed (mode dispatcher) ────────────────────────────────────────────
+// ─── Regression Matrix (decide) ──────────────────────────────────────────────
 
-describe('isAllowed mode routing', () => {
-  it('strict mode: ignores channel whitelist', () => {
-    const ctx = extractContext('https://www.youtube.com/@mkbhd');
-    expect(isAllowed(ctx, wl({ channels: [{ id: '@mkbhd' }] }), 'strict')).toBe(false);
+describe('decide() regression matrix', () => {
+  const baseWhitelist = wl({
+    videos: [{ id: 'good123' }],
+    playlists: [{ id: 'PLgood' }],
+    channels: [{ id: '@mkbhd' }]
   });
 
-  it('filtered mode: consults channel whitelist', () => {
-    const ctx = extractContext('https://www.youtube.com/@mkbhd');
-    expect(isAllowed(ctx, wl({ channels: [{ id: '@mkbhd' }] }), 'filtered')).toBe(true);
-  });
+  const tests = [
+    // [URL, Mode, Override, ExpectedAction, ExpectedReason]
+    ['https://www.youtube.com/watch?v=good123', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube.com/watch?v=bad456', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/watch?v=good123', 'filtered', override(null), 'allow', 'Filtered mode'],
+    ['https://www.youtube.com/watch?v=bad456', 'filtered', override(null), 'allow', 'Filtered mode'],
+    ['https://www.youtube.com/watch?v=x&list=PLgood', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube.com/watch?v=x&list=PLbad', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/@mkbhd', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube.com/@badchannel', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/shorts/good123', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube.com/shorts/bad456', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/embed/good123', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube-nocookie.com/embed/good123', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube.com/embed/bad456', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/live/good123', 'strict', override(null), 'allow', 'Whitelisted'],
+    ['https://www.youtube.com/live/bad456', 'strict', override(null), 'block', 'Default deny'],
+    ['https://www.youtube.com/tv', 'strict', override(null), 'block', 'Default deny'],
+    // Override tests
+    ['https://www.youtube.com/watch?v=bad456', 'strict', override(Date.now() + 60000), 'allow', 'Override active'],
+    ['https://www.youtube.com/watch?v=bad456', 'strict', override(Date.now() - 1000), 'block', 'Default deny'],
+    ['https://www.youtube.com/watch?v=bad456', 'strict', { activeUntil: null, disabled: true, blockingSessionStartedAt: 0 }, 'allow', 'Blocking disabled'],
+  ];
 
-  it('strict mode: allows whitelisted video', () => {
-    const ctx = extractContext('https://www.youtube.com/watch?v=abc');
-    expect(isAllowed(ctx, wl({ videos: [{ id: 'abc' }] }), 'strict')).toBe(true);
-  });
-
-  it('filtered mode: always blocks shorts', () => {
-    const ctx = extractContext('https://www.youtube.com/shorts/abc');
-    expect(isAllowed(ctx, wl({ videos: [{ id: 'abc' }] }), 'filtered')).toBe(false);
-  });
+  it.each(tests)(
+    'decide(%s, %s) -> %s',
+    async (url, mode, overrideState, expectedAction, expectedReason) => {
+      const ctx = extractContext(url as string);
+      const input = {
+        ctx,
+        whitelist: baseWhitelist,
+        settings: {
+          stripRelated: true,
+          stripComments: true,
+          stripShorts: true,
+          allowKeywords: [],
+          blockKeywords: [],
+        },
+        override: overrideState as OverrideState,
+        mode: mode as any,
+        now: Date.now(),
+      };
+      
+      const verdict = await decide(input);
+      expect(verdict.action).toBe(expectedAction);
+      expect(verdict.reason).toBe(expectedReason);
+    }
+  );
 });

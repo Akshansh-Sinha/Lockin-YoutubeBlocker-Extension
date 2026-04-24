@@ -15,6 +15,9 @@ export default defineManifest({
   host_permissions: [
     '*://youtube.com/*',
     '*://www.youtube.com/*',
+    '*://music.youtube.com/*',
+    '*://m.youtube.com/*',
+    '*://*.youtube-nocookie.com/*'
   ],
   background: {
     service_worker: 'src/background.ts',
@@ -31,19 +34,25 @@ export default defineManifest({
   content_scripts: [
     {
       matches: [
-        // Filtered mode needs the content script on home, search, channel pages, etc.
-        // Strict mode does a mode-check and only activates History API interception.
         '*://youtube.com/*',
         '*://www.youtube.com/*',
+        '*://music.youtube.com/*',
+        '*://m.youtube.com/*',
+        '*://*.youtube-nocookie.com/*'
       ],
       js: ['src/ui/content/content.ts'],
       run_at: 'document_start',
+      all_frames: true,
     },
   ],
   web_accessible_resources: [
     {
       resources: ['src/ui/block/index.html'],
-      matches: ['*://youtube.com/*', '*://www.youtube.com/*'],
+      matches: [
+        '*://youtube.com/*', 
+        '*://www.youtube.com/*', 
+        '*://*.youtube-nocookie.com/*'
+      ],
     },
   ],
 });

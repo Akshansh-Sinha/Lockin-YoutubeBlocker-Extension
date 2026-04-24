@@ -219,117 +219,118 @@ describe('isWhitelisted', () => {
 // ─── decide() — full decision matrix ─────────────────────────────────────────
 
 describe('decide()', () => {
-  it('allows whitelisted video in strict mode', () => {
+  it('allows whitelisted video in strict mode', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/watch?v=some_video'),
       whitelist: { videos: [{ id: 'some_video' }], playlists: [], channels: [] },
     });
-    expect(decide(input).action).toBe('allow');
-    expect(decide(input).source).toBe('whitelist');
+    const v = await decide(input);
+    expect(v.action).toBe('allow');
+    expect(v.source).toBe('whitelist');
   });
 
-  it('blocks non-whitelisted video in strict mode', () => {
+  it('blocks non-whitelisted video in strict mode', async () => {
     const input = baseInput({ ctx: extractContext('https://youtube.com/watch?v=unknown') });
-    const v = decide(input);
+    const v = await decide(input);
     expect(v.action).toBe('block');
     expect(v.source).toBe('default');
   });
 
-  it('allows whitelisted youtu.be video (new parser path)', () => {
+  it('allows whitelisted youtu.be video (new parser path)', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtu.be/some_video'),
       whitelist: { videos: [{ id: 'some_video' }], playlists: [], channels: [] },
     });
-    expect(decide(input).action).toBe('allow');
+    expect((await decide(input)).action).toBe('allow');
   });
 
-  it('allows whitelisted playlist', () => {
+  it('allows whitelisted playlist', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/playlist?list=whitelisted_playlist'),
       whitelist: { videos: [], playlists: [{ id: 'whitelisted_playlist' }], channels: [] },
     });
-    expect(decide(input).action).toBe('allow');
+    expect((await decide(input)).action).toBe('allow');
   });
 
-  it('allows video watched from whitelisted playlist', () => {
+  it('allows video watched from whitelisted playlist', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/watch?v=any_video&list=whitelisted_playlist'),
       whitelist: { videos: [], playlists: [{ id: 'whitelisted_playlist' }], channels: [] },
     });
-    const v = decide(input);
+    const v = await decide(input);
     expect(v.action).toBe('allow');
     expect(v.reason).toBe('Whitelisted');
   });
 
-  it('blocks video from non-whitelisted playlist', () => {
+  it('blocks video from non-whitelisted playlist', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/watch?v=any_video&list=other_playlist'),
     });
-    expect(decide(input).action).toBe('block');
+    expect((await decide(input)).action).toBe('block');
   });
 
-  it('allows all URLs when blocking is disabled', () => {
+  it('allows all URLs when blocking is disabled', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/'),
       override: { activeUntil: null, disabled: true, blockingSessionStartedAt: null },
     });
-    const v = decide(input);
+    const v = await decide(input);
     expect(v.action).toBe('allow');
     expect(v.source).toBe('disabled');
   });
 
-  it('allows all URLs when override is active', () => {
+  it('allows all URLs when override is active', async () => {
     const futureTime = Date.now() + 10 * 60 * 1000;
     const input = baseInput({
       ctx: extractContext('https://youtube.com/'),
       override: { activeUntil: futureTime, disabled: false, blockingSessionStartedAt: Date.now() },
       now: Date.now(),
     });
-    const v = decide(input);
+    const v = await decide(input);
     expect(v.action).toBe('allow');
     expect(v.source).toBe('override');
   });
 
-  it('blocks when override has expired', () => {
+  it('blocks when override has expired', async () => {
     const pastTime = Date.now() - 1000;
     const input = baseInput({
       ctx: extractContext('https://youtube.com/'),
       override: { activeUntil: pastTime, disabled: false, blockingSessionStartedAt: Date.now() },
       now: Date.now(),
     });
-    expect(decide(input).action).toBe('block');
+    expect((await decide(input)).action).toBe('block');
   });
 
-  it('allows all navigation in filtered mode', () => {
+  it('allows all navigation in filtered mode', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/watch?v=unknown'),
       mode: 'filtered',
     });
-    const v = decide(input);
+    const v = await decide(input);
     expect(v.action).toBe('allow');
     expect(v.source).toBe('default');
   });
 
-  it('fails closed when whitelist is malformed', () => {
+  it('fails closed when whitelist is malformed', async () => {
     const input = baseInput({
       ctx: extractContext('https://youtube.com/watch?v=abc'),
       whitelist: null as any,
     });
-    const v = decide(input);
+    const v = await decide(input);
     expect(v.action).toBe('block');
     expect(v.source).toBe('error');
   });
 
   // Regression: the bug that started this fix — seed video in whitelist must NOT
   // grant access to all other songs in its auto-generated mix.
-  it('regression: whitelisted seed video does not unlock its RD* mix', () => {
+  it('regression: whitelisted seed video does not unlock its RD* mix', async () => {
     const wl = { videos: [{ id: 'seed_video' }], playlists: [], channels: [] };
     const otherVideoInMix = extractContext(
       'https://youtube.com/watch?v=other_song&list=RDseed_video'
     );
     // playlistId is null (stripped); videoId is 'other_song' (not whitelisted)
     const input = baseInput({ ctx: otherVideoInMix, whitelist: wl });
-    expect(decide(input).action).toBe('block');
+    expect((await decide(input)).action).toBe('block');
   });
 });
 

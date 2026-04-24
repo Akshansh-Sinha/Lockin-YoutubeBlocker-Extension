@@ -49,7 +49,9 @@ const TARGETS_SELECTOR = TARGETS.join(', ');
  */
 function enforceFilteredModeNavigation() {
   if (window.location.pathname.startsWith('/shorts')) {
-    window.location.replace('/');
+    const from = encodeURIComponent(window.location.href);
+    const reason = encodeURIComponent('Shorts are not allowed');
+    window.location.replace(`${BLOCK_PAGE}?from=${from}&reason=${reason}`);
   }
 }
 
@@ -277,23 +279,30 @@ function injectGlobalStyles() {
 // Fail-open on paint is correct — fail-closed is the decision engine's job.
 
 let flickerGuardTimer: ReturnType<typeof setTimeout> | null = null;
+let guardDroppedEarly = false;
+let failsafeCeiling = 800; // Calibrated adaptively by updateFailsafeCeiling()
 
 function injectFlickerGuard(): void {
   if (document.getElementById('lockin-gate')) return;
-  const style = document.createElement('style');
-  style.id = 'lockin-gate';
-  // Hide the main player and app shell during verdict round-trip.
-  // Using visibility:hidden (not display:none) so layout doesn't reflow
-  // when the guard is removed — smoother reveal.
-  style.textContent = 'ytd-watch-flexy, ytd-app { visibility: hidden !important; }';
-  (document.head || document.documentElement).appendChild(style);
 
-  // Hard failsafe: remove the gate after 800ms even if no verdict arrives.
-  // This prevents an invisible page if the SW is evicted or message is dropped.
+  guardDroppedEarly = false;
+
+  // Black overlay div — covers the page during the verdict round-trip.
+  // Using a div (not visibility:hidden on ytd-app) so we can fade it out
+  // for a smooth reveal: a fade reads as "loading", an instant vanish reads as "glitch".
+  const gate = document.createElement('div');
+  gate.id = 'lockin-gate';
+  gate.style.cssText =
+    'position:fixed;inset:0;background:#0f0f0f;z-index:2147483646;' +
+    'opacity:1;transition:opacity 150ms ease-out;';
+  (document.body || document.documentElement).appendChild(gate);
+
+  // Adaptive failsafe: drop the gate after `failsafeCeiling` ms even if no verdict arrives.
   flickerGuardTimer = setTimeout(() => {
+    guardDroppedEarly = true;
     removeFlickerGuard();
-    console.warn('[Lockin] Flicker guard failsafe triggered (800ms) — removing gate. SW may be evicted.');
-  }, 800);
+    console.warn(`[Lockin] Flicker guard failsafe triggered (${failsafeCeiling}ms) — SW may be evicted.`);
+  }, failsafeCeiling);
 }
 
 function removeFlickerGuard(): void {
@@ -301,7 +310,20 @@ function removeFlickerGuard(): void {
     clearTimeout(flickerGuardTimer);
     flickerGuardTimer = null;
   }
-  document.getElementById('lockin-gate')?.remove();
+  const gate = document.getElementById('lockin-gate');
+  if (!gate) return;
+  // Fade out over 150ms, then remove from DOM.
+  gate.style.opacity = '0';
+  setTimeout(() => gate.remove(), 160);
+}
+
+function injectLateBlockOverlay(): void {
+  if (document.getElementById('lockin-late-block-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'lockin-late-block-overlay';
+  // A solid black overlay to cover the video if the gate was dropped early
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0f0f0f; z-index: 2147483647;';
+  (document.body || document.documentElement).appendChild(overlay);
 }
 
 function activateDOMFilter(whitelist: Whitelist, override?: OverrideState) {
@@ -357,19 +379,86 @@ function activateDOMFilter(whitelist: Whitelist, override?: OverrideState) {
 
 // ─── Strict mode — History API interception ───────────────────────────────────
 
-async function checkAndDecideUrl(urlString: string): Promise<{ action: 'allow' | 'block'; reason: string; source?: string; signals?: string[] }> {
+function updateFailsafeCeiling(latency: number) {
+  try {
+    const raw = sessionStorage.getItem('lockin_latencies');
+    const latencies: number[] = raw ? JSON.parse(raw) : [];
+    latencies.push(latency);
+    if (latencies.length > 20) latencies.shift();
+    sessionStorage.setItem('lockin_latencies', JSON.stringify(latencies));
+
+    // Calculate p95
+    const sorted = [...latencies].sort((a, b) => a - b);
+    const p95Index = Math.floor(sorted.length * 0.95);
+    const p95 = sorted[p95Index] || 400;
+
+    failsafeCeiling = Math.max(400, Math.min(1500, p95 + 100));
+  } catch (e) {
+    failsafeCeiling = 800; // fallback
+  }
+}
+
+type DecisionResult = { action: 'allow' | 'block'; reason: string; source?: string; signals?: string[] };
+
+// ─── Verdict session cache ────────────────────────────────────────────────────
+// Persists last-known-good verdicts across SW evictions within the browser
+// session. If the SW is unavailable after retry, serve the cached verdict
+// rather than always failing closed — correct, but jarring for whitelisted pages.
+
+const VERDICT_CACHE_PREFIX = 'lockin_verdict:';
+
+function cacheVerdict(url: string, result: DecisionResult): void {
+  try {
+    sessionStorage.setItem(VERDICT_CACHE_PREFIX + url, JSON.stringify(result));
+  } catch { /* ignore QuotaExceededError */ }
+}
+
+function getCachedVerdict(url: string): DecisionResult | null {
+  try {
+    const raw = sessionStorage.getItem(VERDICT_CACHE_PREFIX + url);
+    return raw ? (JSON.parse(raw) as DecisionResult) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkAndDecideUrl(urlString: string): Promise<DecisionResult> {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { type: 'CHECK_AND_DECIDE', url: urlString },
-      (response) => {
-        const result = response || { action: 'allow', reason: 'Default allow' };
-        // If allowed, remove the flicker guard so the page becomes visible.
-        if (result.action === 'allow') {
-          removeFlickerGuard();
+    const start = Date.now();
+
+    function attempt(isRetry: boolean): void {
+      chrome.runtime.sendMessage(
+        { type: 'CHECK_AND_DECIDE', url: urlString },
+        (response) => {
+          // SW may be cold-starting (~300ms). If no response on first attempt, retry once.
+          if ((chrome.runtime.lastError || !response) && !isRetry) {
+            console.warn('[Lockin] No SW response — retrying in 300ms (SW may be waking up)');
+            setTimeout(() => attempt(true), 300);
+            return;
+          }
+
+          const latency = Date.now() - start;
+          updateFailsafeCeiling(latency);
+
+          // On success — cache verdict for SW-eviction resilience.
+          // On retry failure — fall back to session cache before failing closed.
+          const result: DecisionResult = response
+            ? response
+            : (getCachedVerdict(urlString) ?? { action: 'block', reason: 'SW unavailable' });
+          if (response) cacheVerdict(urlString, result);
+
+          if (result.action === 'allow') {
+            removeFlickerGuard();
+          } else if (result.action === 'block' && guardDroppedEarly) {
+            // Gate already dropped by failsafe — cover screen before redirect to avoid flash.
+            injectLateBlockOverlay();
+          }
+          resolve(result);
         }
-        resolve(result);
-      }
-    );
+      );
+    }
+
+    attempt(false);
   });
 }
 
@@ -499,9 +588,38 @@ function setupHistoryListener(): void {
 /** Track what mode we booted with so we can detect transitions. */
 let bootedMode: 'strict' | 'filtered' | null = null;
 
+/**
+ * Shows a notice banner on subdomains where filtered-mode DOM selectors
+ * don't apply. music.youtube.com uses a `ytmusic-app` root; m.youtube.com
+ * uses a redesigned mobile layout — neither matches ytd-* selectors.
+ * Prevents silent fail-open in filtered mode.
+ */
+function showUnsupportedSubdomainBanner(hostname: string): void {
+  const banner = document.createElement('div');
+  banner.id = 'lockin-unsupported-notice';
+  banner.style.cssText =
+    'position:fixed;top:0;left:0;right:0;padding:10px 16px;' +
+    'background:#f59e0b;color:#1c1917;font:600 13px/1.4 system-ui,sans-serif;' +
+    'z-index:2147483647;text-align:center;';
+  banner.textContent =
+    `Lockin: Filtered mode is not supported on ${hostname}. ` +
+    'Switch to Strict mode to enforce blocking here.';
+  (document.body || document.documentElement).appendChild(banner);
+}
+
 async function init(): Promise<void> {
   const { mode, whitelist, override } = await getStorage();
   bootedMode = mode;
+
+  // Filtered-mode DOM selectors target ytd-* elements and won't match the
+  // music (ytmusic-app) or mobile DOM. Show a notice and skip the DOM filter
+  // rather than silently failing open. Strict mode still works via background.ts.
+  const hostname = window.location.hostname;
+  if (mode === 'filtered' &&
+      (hostname === 'music.youtube.com' || hostname === 'm.youtube.com')) {
+    showUnsupportedSubdomainBanner(hostname);
+    return;
+  }
 
   if (mode === 'strict') {
     const overrideIsActive =
