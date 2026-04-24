@@ -140,33 +140,27 @@ if (urlText) {
   urlText.textContent = decodedUrl ? `Blocked: ${decodedUrl}` : '';
 }
 
-// Populate Provenance UI
-const provenanceContainer = document.getElementById('provenanceContainer');
-const provenanceSource = document.getElementById('provenanceSource');
-const provenanceSignals = document.getElementById('provenanceSignals');
-
-if (provenanceContainer && provenanceSource && provenanceSignals) {
-  if (sourceParam) {
-    provenanceContainer.style.display = 'block';
-    provenanceSource.textContent = sourceParam.toUpperCase();
-    
-    if (signalsParam) {
-      try {
-        const signals = JSON.parse(decodeURIComponent(signalsParam));
-        if (Array.isArray(signals) && signals.length > 0) {
-          provenanceSignals.innerHTML = signals.map(sig => `<li>${escapeHtml(sig)}</li>`).join('');
-        } else {
-          provenanceSignals.innerHTML = `<li>No signals provided</li>`;
-        }
-      } catch (e) {
-        console.error('Failed to parse signals:', e);
-        provenanceSignals.innerHTML = `<li>${escapeHtml(signalsParam)}</li>`;
+// Log Provenance trace to developer console instead of showing to the user
+if (sourceParam) {
+  console.group('%c[Lockin] Decision Trace', 'color: #d8d0bd; font-weight: bold;');
+  console.log(`Source: %c${sourceParam.toUpperCase()}`, 'color: #e74c3c; font-weight: bold;');
+  
+  if (signalsParam) {
+    try {
+      const signals = JSON.parse(decodeURIComponent(signalsParam));
+      if (Array.isArray(signals) && signals.length > 0) {
+        signals.forEach(sig => console.log(`• ${sig}`));
+      } else {
+        console.log('No specific signals provided.');
       }
-    } else {
-      const reasonParam = getQueryParam('reason');
-      provenanceSignals.innerHTML = `<li>${escapeHtml(reasonParam || 'Default deny')}</li>`;
+    } catch (e) {
+      console.log(`• Raw signals: ${signalsParam}`);
     }
+  } else {
+    const reasonParam = getQueryParam('reason');
+    console.log(`• Reason: ${reasonParam || 'Default deny'}`);
   }
+  console.groupEnd();
 }
 
 startBlockTimer().catch((error) => {
